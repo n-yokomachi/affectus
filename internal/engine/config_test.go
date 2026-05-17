@@ -58,6 +58,12 @@ func TestValidateErrors(t *testing.T) {
 		{"bands order", func(c *Config) {
 			c.Render.Bands = []Band{{Max: 1.0, Label: "x"}, {Max: 0.5, Label: "y"}}
 		}, "ascending"},
+		{"no clauses placeholder", func(c *Config) { c.Render.Template = "static text" }, "{clauses}"},
+		{"missing axis phrase", func(c *Config) { delete(c.Render.AxisPhrases, "joy") }, "axis_phrases"},
+		{"bad threshold", func(c *Config) { c.Render.Threshold = -0.1 }, "threshold"},
+		{"duplicate band max", func(c *Config) {
+			c.Render.Bands = []Band{{Max: 0.5, Label: "x"}, {Max: 0.5, Label: "y"}}
+		}, "ascending"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -23,6 +23,8 @@ go install github.com/n-yokomachi/affectus/cmd/emotion@latest
 
 Or download a binary from the Releases page and place `emotion` on your PATH.
 
+Requires macOS or Linux (affectus uses Unix file locking).
+
 ## Quick start
 
 ```bash

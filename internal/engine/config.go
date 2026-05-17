@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,7 +19,10 @@ type AxisConfig struct {
 	Name            string  `yaml:"name"`
 	Baseline        float64 `yaml:"baseline"`
 	HalflifeMinutes float64 `yaml:"halflife_minutes"`
-	Opposite        string  `yaml:"opposite"`
+	// Opposite names the polar-opposite axis (e.g. joy <-> sadness). Reserved
+	// for future use: validated for referential integrity but not yet consumed
+	// by decay, apply, or render logic.
+	Opposite string `yaml:"opposite"`
 }
 
 // Band maps an upper-bound intensity to an adverb label.
@@ -105,9 +109,20 @@ func (c Config) Validate() error {
 		return fmt.Errorf("config: render.bands must not be empty")
 	}
 	for i := 1; i < len(c.Render.Bands); i++ {
-		if c.Render.Bands[i].Max < c.Render.Bands[i-1].Max {
-			return fmt.Errorf("config: render.bands must be ascending by max")
+		if c.Render.Bands[i].Max <= c.Render.Bands[i-1].Max {
+			return fmt.Errorf("config: render.bands must be strictly ascending by max")
 		}
+	}
+	if !strings.Contains(c.Render.Template, "{clauses}") {
+		return fmt.Errorf("config: render.template must contain the {clauses} placeholder")
+	}
+	for _, ax := range c.Axes {
+		if _, ok := c.Render.AxisPhrases[ax.Name]; !ok {
+			return fmt.Errorf("config: render.axis_phrases is missing axis %q", ax.Name)
+		}
+	}
+	if c.Render.Threshold < 0 || c.Render.Threshold > c.Clamp.Max {
+		return fmt.Errorf("config: render.threshold must be between 0 and clamp.max")
 	}
 	return nil
 }

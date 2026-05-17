@@ -3,3 +3,5 @@
 # local affectus state used during manual testing
 *.tmp
 .state-*.tmp
+# advisory lock files left by the engine
+*.lock
