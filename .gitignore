@@ -1,5 +1,5 @@
 # built binary
-/emotion
+/affectus
 # local affectus state used during manual testing
 *.tmp
 .state-*.tmp

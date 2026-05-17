@@ -2,7 +2,7 @@
 
 Agents with lifecycle hooks can refresh idle decay without cron. In Claude
 Code, a `Stop` hook fires when a response finishes — a natural place to run
-`emotion tick`.
+`affectus tick`.
 
 Add to `.claude/settings.json`:
 
@@ -13,7 +13,7 @@ Add to `.claude/settings.json`:
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": "emotion tick" }
+          { "type": "command", "command": "affectus tick" }
         ]
       }
     ]
@@ -22,8 +22,8 @@ Add to `.claude/settings.json`:
 ```
 
 This keeps the stored state fresh between turns. The conversational
-`emotion show` / `emotion feel` protocol from `system-prompt-snippet.md`
+`affectus show` / `affectus feel` protocol from `system-prompt-snippet.md`
 is still required — the hook only handles decay.
 
-Note: the `emotion feel` self-report still belongs in the system prompt;
+Note: the `affectus feel` self-report still belongs in the system prompt;
 hooks cannot decide emotional deltas.

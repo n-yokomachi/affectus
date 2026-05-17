@@ -11,7 +11,7 @@ import (
 	"github.com/n-yokomachi/affectus/internal/cli"
 )
 
-const usage = "usage: emotion [--config P] [--state P] <init|show|get|feel|tick|reset|mcp> [args]"
+const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|tick|reset|mcp> [args]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -23,7 +23,7 @@ func main() {
 // run parses args and dispatches to a CLI command. It is separated from main
 // so tests can drive it directly.
 func run(args []string) error {
-	fs := flag.NewFlagSet("emotion", flag.ContinueOnError)
+	fs := flag.NewFlagSet("affectus", flag.ContinueOnError)
 	configFlag := fs.String("config", "", "path to config file")
 	stateFlag := fs.String("state", "", "path to state file")
 	if err := fs.Parse(args); err != nil {
@@ -62,7 +62,7 @@ func run(args []string) error {
 		return cli.Get(env)
 	case "feel":
 		if len(cmdArgs) != 1 {
-			return fmt.Errorf("usage: emotion feel '<deltas-json>'  (use - to read JSON from stdin)")
+			return fmt.Errorf("usage: affectus feel '<deltas-json>'  (use - to read JSON from stdin)")
 		}
 		payload := cmdArgs[0]
 		if payload == "-" {
