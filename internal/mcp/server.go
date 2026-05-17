@@ -18,6 +18,8 @@ type feelInput struct {
 	Deltas map[string]float64 `json:"deltas"`
 }
 
+const serverVersion = "0.1.0"
+
 // handleShow computes the current emotion without persisting.
 func handleShow(env cli.Env) (showResult, error) {
 	fragment, axes, err := cli.ComputeShow(env)
@@ -39,7 +41,7 @@ func handleFeel(env cli.Env, in feelInput) (showResult, error) {
 // Serve runs the affectus MCP server over stdio, exposing emotion_show and
 // emotion_feel. Idle decay still requires a separate cron `emotion tick`.
 func Serve(ctx context.Context, env cli.Env) error {
-	server := mcp.NewServer(&mcp.Implementation{Name: "affectus", Version: "0.1.0"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: "affectus", Version: serverVersion}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "emotion_show",
