@@ -1,0 +1,36 @@
+version: 1
+clamp:       { min: 0.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  - { name: joy,          baseline: 0.0, halflife_minutes: 90, opposite: sadness }
+  - { name: sadness,      baseline: 0.0, halflife_minutes: 90, opposite: joy }
+  - { name: trust,        baseline: 0.0, halflife_minutes: 90, opposite: disgust }
+  - { name: disgust,      baseline: 0.0, halflife_minutes: 90, opposite: trust }
+  - { name: fear,         baseline: 0.0, halflife_minutes: 90, opposite: anger }
+  - { name: anger,        baseline: 0.0, halflife_minutes: 90, opposite: fear }
+  - { name: surprise,     baseline: 0.0, halflife_minutes: 90, opposite: anticipation }
+  - { name: anticipation, baseline: 0.0, halflife_minutes: 90, opposite: surprise }
+
+render:
+  threshold: 0.15
+  max_axes: 3
+  bands:
+    - { max: 0.35, label: "a faint trace of " }
+    - { max: 0.70, label: "a moderate sense of " }
+    - { max: 1.00, label: "a strong sense of " }
+  template: "Right now you feel {clauses}."
+  empty: "Right now you feel calm and even."
+  conjunction: " and "
+  separator: ", "
+  axis_phrases:
+    joy: "joy"
+    sadness: "sadness"
+    trust: "trust"
+    disgust: "distaste"
+    fear: "unease"
+    anger: "irritation"
+    surprise: "surprise"
+    anticipation: "anticipation"
+
+fragment_file: ""
