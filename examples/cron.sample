@@ -1,0 +1,5 @@
+# affectus: relax the emotion vector toward baseline every 30 minutes,
+# even while the agent is idle. Install with `crontab -e`.
+# Adjust the binary path and config/state paths as needed.
+
+*/30 * * * * /usr/local/bin/emotion tick
