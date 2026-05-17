@@ -44,7 +44,7 @@ func TestRenderRespectsMaxAxes(t *testing.T) {
 func TestRenderSingleAxis(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	s := NewState(cfg, time.Now())
-	s.Axes["surprise"] = 0.30 // <= 0.35 -> "a faint trace of "
+	s.Axes["surprise"] = 0.30 // < 0.35 -> "a faint trace of "
 	got := Render(s, cfg)
 	if got != "Right now you feel a faint trace of surprise." {
 		t.Fatalf("Render = %q", got)

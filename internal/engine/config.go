@@ -23,8 +23,10 @@ type AxisConfig struct {
 
 // Band maps an upper-bound intensity to an adverb label.
 type Band struct {
-	Max   float64 `yaml:"max"`
-	Label string  `yaml:"label"`
+	Max float64 `yaml:"max"`
+	// Label must include any spacing needed between it and the axis phrase
+	// (English uses a trailing space, e.g. "a strong sense of "; Japanese none).
+	Label string `yaml:"label"`
 }
 
 // RenderConfig controls vector-to-natural-language rendering.
