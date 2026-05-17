@@ -66,7 +66,7 @@ func run(args []string) error {
 		}
 		payload := cmdArgs[0]
 		if payload == "-" {
-			b, err := io.ReadAll(os.Stdin)
+			b, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
 			if err != nil {
 				return err
 			}
