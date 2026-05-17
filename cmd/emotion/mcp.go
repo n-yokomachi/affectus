@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/n-yokomachi/affectus/internal/cli"
+	"github.com/n-yokomachi/affectus/internal/mcp"
 )
 
-// runMCP is replaced with the real MCP server wiring in Task 12.
-func runMCP(_ cli.Env) error {
-	return fmt.Errorf("mcp subcommand not yet implemented")
+func runMCP(env cli.Env) error {
+	return mcp.Serve(context.Background(), env)
 }

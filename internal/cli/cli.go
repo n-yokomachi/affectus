@@ -73,6 +73,10 @@ func Init(env Env, force bool) error {
 	if err := engine.SaveState(env.StatePath, engine.NewState(cfg, env.Now())); err != nil {
 		return err
 	}
-	fmt.Fprintf(env.Stdout, "initialized config=%s state=%s\n", env.ConfigPath, env.StatePath)
+	out := env.Stdout
+	if out == nil {
+		out = io.Discard
+	}
+	fmt.Fprintf(out, "initialized config=%s state=%s\n", env.ConfigPath, env.StatePath)
 	return nil
 }
