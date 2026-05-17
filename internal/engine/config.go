@@ -65,7 +65,7 @@ func ParseConfig(data []byte) (Config, error) {
 func LoadConfig(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Config{}, err
+		return Config{}, fmt.Errorf("config: reading %q: %w", path, err)
 	}
 	return ParseConfig(data)
 }
