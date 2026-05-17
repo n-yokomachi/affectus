@@ -17,11 +17,23 @@ It is framework-agnostic: any agent that can run a shell command can use it.
 
 ## Install
 
+### Prebuilt binary (no Go toolchain needed)
+
+Download the archive for your platform from the
+[Releases page](https://github.com/n-yokomachi/affectus/releases), extract it,
+and put the `affectus` binary on your PATH:
+
+```bash
+# example: macOS (Apple Silicon)
+tar -xzf affectus_v0.1.1_darwin_arm64.tar.gz
+mv affectus /usr/local/bin/
+```
+
+### From source
+
 ```bash
 go install github.com/n-yokomachi/affectus/cmd/affectus@latest
 ```
-
-Or download a binary from the Releases page and place `affectus` on your PATH.
 
 Requires macOS or Linux (affectus uses Unix file locking).
 
