@@ -2,6 +2,7 @@ package viz
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"time"
 
@@ -29,10 +30,10 @@ type stateResponse struct {
 
 // loadConfig loads the config file if present, otherwise the embedded default.
 func loadConfig(path string) (engine.Config, error) {
-	if _, err := os.Stat(path); err == nil {
-		return engine.LoadConfig(path)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return engine.DefaultConfig()
 	}
-	return engine.DefaultConfig()
+	return engine.LoadConfig(path)
 }
 
 // stateJSON loads the state, decays it to now, and marshals the /state
