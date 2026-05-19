@@ -4,12 +4,12 @@ delta_clamp: { min: -1.0, max: 1.0 }
 
 axes:
   - { name: joy,          baseline: 0.0, halflife_minutes: 90, opposite: sadness }
-  - { name: sadness,      baseline: 0.0, halflife_minutes: 90, opposite: joy }
   - { name: trust,        baseline: 0.0, halflife_minutes: 90, opposite: disgust }
-  - { name: disgust,      baseline: 0.0, halflife_minutes: 90, opposite: trust }
   - { name: fear,         baseline: 0.0, halflife_minutes: 90, opposite: anger }
-  - { name: anger,        baseline: 0.0, halflife_minutes: 90, opposite: fear }
   - { name: surprise,     baseline: 0.0, halflife_minutes: 90, opposite: anticipation }
+  - { name: sadness,      baseline: 0.0, halflife_minutes: 90, opposite: joy }
+  - { name: disgust,      baseline: 0.0, halflife_minutes: 90, opposite: trust }
+  - { name: anger,        baseline: 0.0, halflife_minutes: 90, opposite: fear }
   - { name: anticipation, baseline: 0.0, halflife_minutes: 90, opposite: surprise }
 
 render:
