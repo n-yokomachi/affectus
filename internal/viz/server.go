@@ -78,6 +78,7 @@ func newMux(cfg engine.Config, statePath string) *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
 	})

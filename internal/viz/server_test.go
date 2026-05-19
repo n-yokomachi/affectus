@@ -104,3 +104,13 @@ func TestMuxServesState(t *testing.T) {
 		t.Errorf("got %d axes, want 8", len(resp.Axes))
 	}
 }
+
+func TestMuxServes404(t *testing.T) {
+	cfg, _ := engine.DefaultConfig()
+	mux := newMux(cfg, filepath.Join(t.TempDir(), "s.json"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/nonexistent", nil))
+	if rec.Code != 404 {
+		t.Errorf("GET /nonexistent = %d, want 404", rec.Code)
+	}
+}
