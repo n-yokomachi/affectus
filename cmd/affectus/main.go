@@ -11,7 +11,7 @@ import (
 	"github.com/n-yokomachi/affectus/internal/cli"
 )
 
-const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|tick|reset|mcp> [args]"
+const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|tick|reset|mcp|viz> [args]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -77,6 +77,13 @@ func run(args []string) error {
 		return cli.Tick(env)
 	case "reset":
 		return cli.Reset(env)
+	case "viz":
+		vfs := flag.NewFlagSet("viz", flag.ContinueOnError)
+		port := vfs.Int("port", 8765, "HTTP port for the viz server")
+		if err := vfs.Parse(cmdArgs); err != nil {
+			return err
+		}
+		return runViz(env.ConfigPath, env.StatePath, *port)
 	case "mcp":
 		return runMCP(env)
 	default:

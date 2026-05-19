@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -32,5 +33,15 @@ func TestRunUnknownCommand(t *testing.T) {
 func TestRunFeelRequiresArg(t *testing.T) {
 	if err := run([]string{"feel"}); err == nil {
 		t.Fatal("feel without payload should error")
+	}
+}
+
+func TestRunVizRejectsBadFlag(t *testing.T) {
+	err := run([]string{"viz", "--nope"})
+	if err == nil {
+		t.Fatal("viz with an unknown flag should error")
+	}
+	if strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("viz should be a recognized command, got: %v", err)
 	}
 }
