@@ -60,6 +60,7 @@ State and config live under `~/.config/affectus/` by default. Override with
 | `affectus tick` | Apply time decay only — the cron target |
 | `affectus reset` | Return every axis to baseline |
 | `affectus mcp` | Run an MCP server (stdio) exposing `emotion_show` / `emotion_feel` |
+| `affectus viz [--port N]` | Serve a real-time browser visualization of the emotion state (default port 8765) |
 
 ## Wiring it into an agent
 
@@ -69,6 +70,18 @@ State and config live under `~/.config/affectus/` by default. Override with
 4. Teach the agent the protocol: paste `examples/system-prompt-snippet.md`
    into its system prompt.
 5. MCP-capable agents may instead register `affectus mcp` — see that command.
+
+## Visualizing the emotion state
+
+`affectus viz` starts a local web server that visualizes the live emotion
+state — a Plutchik wheel coloured by intensity and a set of decay bars.
+
+```bash
+affectus viz            # then open http://localhost:8765
+```
+
+The page polls the state and shows it decayed to the current moment, so the
+mood visibly drifts toward baseline between turns. The server is read-only.
 
 ## Emotion model
 
