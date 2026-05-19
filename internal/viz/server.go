@@ -1,8 +1,11 @@
 package viz
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -53,4 +56,42 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 		resp.Axes = append(resp.Axes, axisValue{Name: ax.Name, Value: s.Axes[ax.Name]})
 	}
 	return json.MarshalIndent(resp, "", "  ")
+}
+
+//go:embed assets/index.html
+var indexHTML []byte
+
+// newMux builds the HTTP handler for the viz server.
+func newMux(cfg engine.Config, statePath string) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(indexHTML)
+	})
+	mux.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
+		b, err := stateJSON(cfg, statePath, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+	})
+	return mux
+}
+
+// Serve loads the config and runs the visualization HTTP server on
+// localhost:port. It blocks until the process is interrupted.
+func Serve(configPath, statePath string, port int) error {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	addr := fmt.Sprintf("localhost:%d", port)
+	fmt.Printf("affectus viz running at http://%s  (Ctrl-C to stop)\n", addr)
+	return http.ListenAndServe(addr, newMux(cfg, statePath))
 }

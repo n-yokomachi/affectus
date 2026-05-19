@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>affectus viz</title>
+<style>
+  body { font-family: sans-serif; background:#1a1a1a; color:#eee; margin:0; padding:24px; }
+  h1 { font-size:15px; font-weight:normal; color:#888; margin:0 0 16px; }
+  .panels { display:flex; gap:48px; flex-wrap:wrap; align-items:flex-start; }
+  .bar-row { display:flex; align-items:center; margin:7px 0; }
+  .bar-label { width:104px; font-size:13px; text-align:right; padding-right:10px; }
+  .bar-track { width:240px; height:16px; background:#333; border-radius:3px; }
+  .bar-fill { height:100%; border-radius:3px; transition:width .35s linear; }
+  .updated { color:#666; font-size:12px; margin-top:20px; }
+</style>
+</head>
+<body>
+  <h1>affectus &mdash; emotion state</h1>
+  <div class="panels">
+    <svg id="wheel" width="320" height="320" viewBox="0 0 320 320"></svg>
+    <div id="bars"></div>
+  </div>
+  <div class="updated" id="updated"></div>
+<script>
+const POLL_MS = 1000, CX = 160, CY = 160, R = 130;
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function hue(i, n) { return Math.round(360 * i / n); }
+
+function renderWheel(axes) {
+  const svg = document.getElementById("wheel");
+  svg.innerHTML = "";
+  const n = axes.length;
+  axes.forEach((ax, i) => {
+    const a0 = 2*Math.PI*i/n - Math.PI/2;
+    const a1 = 2*Math.PI*(i+1)/n - Math.PI/2;
+    const x0 = CX + R*Math.cos(a0), y0 = CY + R*Math.sin(a0);
+    const x1 = CX + R*Math.cos(a1), y1 = CY + R*Math.sin(a1);
+    const path = document.createElementNS(SVGNS, "path");
+    path.setAttribute("d", `M${CX},${CY} L${x0},${y0} A${R},${R} 0 0,1 ${x1},${y1} Z`);
+    path.setAttribute("fill", `hsl(${hue(i,n)},70%,55%)`);
+    path.setAttribute("fill-opacity", (0.08 + 0.92*ax.value).toFixed(3));
+    path.setAttribute("stroke", "#1a1a1a");
+    path.setAttribute("stroke-width", "2");
+    svg.appendChild(path);
+    const am = (a0 + a1) / 2;
+    const t = document.createElementNS(SVGNS, "text");
+    t.setAttribute("x", CX + (R+14)*Math.cos(am));
+    t.setAttribute("y", CY + (R+14)*Math.sin(am));
+    t.setAttribute("font-size", "11");
+    t.setAttribute("fill", "#aaa");
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("dominant-baseline", "middle");
+    t.textContent = ax.name;
+    svg.appendChild(t);
+  });
+}
+
+function renderBars(axes, clamp) {
+  const box = document.getElementById("bars");
+  box.innerHTML = "";
+  const n = axes.length;
+  const span = (clamp.max - clamp.min) || 1;
+  axes.forEach((ax, i) => {
+    const row = document.createElement("div"); row.className = "bar-row";
+    const label = document.createElement("div"); label.className = "bar-label";
+    label.textContent = ax.name;
+    const track = document.createElement("div"); track.className = "bar-track";
+    const fill = document.createElement("div"); fill.className = "bar-fill";
+    const pct = Math.max(0, Math.min(1, (ax.value - clamp.min) / span));
+    fill.style.width = (pct*100).toFixed(1) + "%";
+    fill.style.background = `hsl(${hue(i,n)},70%,55%)`;
+    track.appendChild(fill);
+    row.appendChild(label); row.appendChild(track);
+    box.appendChild(row);
+  });
+}
+
+async function poll() {
+  try {
+    const res = await fetch("/state");
+    const data = await res.json();
+    renderWheel(data.axes);
+    renderBars(data.axes, data.clamp);
+    document.getElementById("updated").textContent = "updated_at: " + data.updated_at;
+  } catch (e) {
+    document.getElementById("updated").textContent = "error: " + e;
+  }
+}
+poll();
+setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>

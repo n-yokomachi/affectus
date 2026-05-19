@@ -2,7 +2,9 @@ package viz
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,5 +69,38 @@ func TestLoadConfigFallsBackToDefault(t *testing.T) {
 	}
 	if len(cfg.Axes) != 8 {
 		t.Errorf("default config should have 8 axes, got %d", len(cfg.Axes))
+	}
+}
+
+func TestMuxServesIndex(t *testing.T) {
+	cfg, _ := engine.DefaultConfig()
+	mux := newMux(cfg, filepath.Join(t.TempDir(), "s.json"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if rec.Code != 200 {
+		t.Fatalf("GET / = %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if rec.Body.Len() == 0 {
+		t.Error("index body is empty")
+	}
+}
+
+func TestMuxServesState(t *testing.T) {
+	cfg, _ := engine.DefaultConfig()
+	mux := newMux(cfg, filepath.Join(t.TempDir(), "s.json"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/state", nil))
+	if rec.Code != 200 {
+		t.Fatalf("GET /state = %d", rec.Code)
+	}
+	var resp stateResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("/state is not valid JSON: %v", err)
+	}
+	if len(resp.Axes) != 8 {
+		t.Errorf("got %d axes, want 8", len(resp.Axes))
 	}
 }
