@@ -56,10 +56,22 @@ def comprehend_per_turn(client, replies: list[str]) -> list[dict]:
     return out
 
 
+_COMPREHEND_DETECT_MAX_BYTES = 4900  # Comprehend DetectSentiment limit is 5000 bytes; keep headroom
+
+
 def comprehend_aggregate(client, full_text: str) -> dict:
     """Call DetectSentiment on the concatenated full conversation. Returns
     a dict with Sentiment, the 4 SentimentScore fields, and polarity.
+
+    Comprehend DetectSentiment accepts at most 5000 bytes. When the
+    concatenated text exceeds this limit the tail is silently truncated so
+    the call always succeeds.  UTF-8 multi-byte characters are respected:
+    we encode, slice on the byte boundary, then decode back to str.
     """
+    encoded = full_text.encode("utf-8")
+    if len(encoded) > _COMPREHEND_DETECT_MAX_BYTES:
+        encoded = encoded[:_COMPREHEND_DETECT_MAX_BYTES]
+        full_text = encoded.decode("utf-8", errors="ignore")
     resp = client.detect_sentiment(Text=full_text, LanguageCode="ja")
     return {
         "Sentiment": resp["Sentiment"],
