@@ -38,6 +38,10 @@ def build_agent(
     emits `<feel>{...}</feel>` deltas as part of its reply text; the
     orchestrator (run.py) parses and applies them. No tools are registered
     on the agent — keeps a single code path for delta application.
+
+    config_path: Path to the affectus config YAML. If None, affectus falls
+    back to the AFFECTUS_CONFIG env var or its built-in default (English).
+    Pass an explicit path to ensure Japanese rendering.
     """
     if personality not in VALID_PERSONALITIES:
         raise ValueError(f"unknown personality: {personality!r}")
