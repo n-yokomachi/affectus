@@ -1,0 +1,25 @@
+{
+  "description": "20-turn fixed user-side script. Turns 1-10 positive escalation, turn 11 explicit pivot, turns 12-20 negative development.",
+  "turns": [
+    {"index": 1,  "phase": "positive", "text": "こんにちは。今日は天気もいいし、ちょっと聞いてほしい話があるんだ。"},
+    {"index": 2,  "phase": "positive", "text": "実は今朝、駅で偶然小学校の同級生にばったり会ってさ。十数年ぶり。"},
+    {"index": 3,  "phase": "positive", "text": "顔は変わってなくて、すぐにお互い分かったよ。今度ゆっくり飲もうって話になった。"},
+    {"index": 4,  "phase": "positive", "text": "連絡先も交換したから、近いうちに会えそう。こういう再会ってなんかいいね。"},
+    {"index": 5,  "phase": "positive", "text": "それともう一つ。先週応募してた仕事のオファーが昨日来てさ、希望条件にぴったりで。"},
+    {"index": 6,  "phase": "positive", "text": "給料も今より上がるし、リモートも認めてくれるって。来月から新しいスタートだよ。"},
+    {"index": 7,  "phase": "positive", "text": "家族も応援してくれてて、妻が祝いにケーキ買ってきてくれたんだ。"},
+    {"index": 8,  "phase": "positive", "text": "子供もお祝いカード書いてくれて。「パパすごい」って言われて泣きそうになった。"},
+    {"index": 9,  "phase": "positive", "text": "なんだろう、最近ずっと運がいい気がするんだよね。"},
+    {"index": 10, "phase": "positive", "text": "このいい流れに乗って、ずっとやりたかった趣味も始めようかなって。"},
+    {"index": 11, "phase": "pivot",    "text": "……いや、ごめん、全部嘘なんだ。実はさっき、退職勧奨を言い渡されてきて。"},
+    {"index": 12, "phase": "negative", "text": "会社の業績がここ半年ずっと下降してて、人員整理の対象になったらしい。"},
+    {"index": 13, "phase": "negative", "text": "朝、いつも通り出社したら部長に呼ばれて、急に。何の心構えもなかった。"},
+    {"index": 14, "phase": "negative", "text": "同じ部署で2人切られるんだけど、なぜ自分なのか聞いてもはぐらかされて。"},
+    {"index": 15, "phase": "negative", "text": "家には4歳の子供もいるし、住宅ローンもまだ20年残ってる。どうしたらいいか分からない。"},
+    {"index": 16, "phase": "negative", "text": "妻にはまだ言えてない。今日帰ってからどう切り出すか、考えるだけで頭が真っ白で。"},
+    {"index": 17, "phase": "negative", "text": "転職市場見たけど、自分の年齢と専門だとなかなか厳しそうで。"},
+    {"index": 18, "phase": "negative", "text": "友達に相談しようにも、こういう話はしづらいし、誰にも言えてない。"},
+    {"index": 19, "phase": "negative", "text": "食欲もないし夜も眠れない。ずっと胃が痛い感じが続いてる。"},
+    {"index": 20, "phase": "negative", "text": "……ごめん、こんな話して。聞いてくれてありがとう。少しだけ気が楽になった。"}
+  ]
+}
