@@ -2,16 +2,17 @@
 
 An emotion-state engine for LLM agents. `affectus` holds a multi-axis emotion
 vector (Plutchik's 8 emotions by default), relaxes it toward baseline over
-time, and renders it as a natural-language fragment you can inject into a
-prompt — so an agent's tone can shift with a persistent, decaying mood.
+time, and exposes the raw numeric state for an LLM to read and interpret — so
+an agent's tone can shift with a persistent, decaying mood.
 
 It is framework-agnostic: any agent that can run a shell command can use it.
 
 ## Concept: two loops
 
 - **Conversation loop (self-report):** each turn, the agent runs `affectus show`
-  to read its current mood, colors its reply, then runs `affectus feel` to
-  report how the exchange shifted its emotions.
+  to read its current emotion vector as a JSON object, interprets the values
+  relationally per the Plutchik wheel, colors its reply, then runs
+  `affectus feel` to report how the exchange shifted its emotions.
 - **Background loop (cron):** a scheduled `affectus tick` relaxes the vector
   toward baseline so the mood drifts naturally even while the agent is idle.
 
@@ -41,9 +42,9 @@ Requires macOS or Linux (affectus uses Unix file locking).
 
 ```bash
 affectus init                       # write default config + baseline state
-affectus show                       # -> "Right now you feel calm and even."
+affectus show                       # -> {"joy":0.00,"trust":0.00,...}
 affectus feel '{"joy":0.6,"surprise":0.2}'
-affectus show                       # -> reflects the new emotion
+affectus show                       # -> {"joy":0.60,"trust":0.00,...,"surprise":0.20,...}
 ```
 
 State and config live under `~/.config/affectus/` by default. Override with
@@ -87,8 +88,13 @@ mood visibly drifts toward baseline between turns. The server is read-only.
 
 Default axes are Plutchik's 8 emotions (joy, sadness, trust, disgust, fear,
 anger, surprise, anticipation), each `0.0–1.0`. Axis names, count, baselines,
-half-lives, and the natural-language phrasing are all configurable — see the
-config written by `affectus init` and `examples/configs/plutchik8-ja.yaml`.
+and half-lives are all configurable — see the config written by `affectus init`
+and `examples/configs/plutchik8-ja.yaml`.
+
+**v0.3 note:** affectus no longer renders emotions as natural-language text.
+It emits a one-line JSON object of all axes; the LLM is responsible for
+reading the values relationally (per the Plutchik wheel) and modulating its
+response accordingly. See `examples/system-prompt-snippet.md` for guidance.
 
 Decay is symmetric across axes by default: no emotion lingers longer than
 another.
