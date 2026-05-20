@@ -17,7 +17,7 @@ type feelInput struct {
 	Deltas map[string]float64 `json:"deltas"`
 }
 
-const serverVersion = "0.1.0"
+const serverVersion = "0.3.0"
 
 // handleShow computes the current emotion without persisting.
 func handleShow(env cli.Env) (showResult, error) {

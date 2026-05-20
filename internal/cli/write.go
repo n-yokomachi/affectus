@@ -8,14 +8,14 @@ import (
 )
 
 // ApplyFeel decays, applies the given deltas, persists, refreshes the optional
-// fragment file, and returns the new fragment and axes. It holds the state
-// lock for the whole read-modify-write cycle.
+// snapshot file with the current axes JSON, and returns the rendered axes JSON
+// and axis map. It holds the state lock for the whole read-modify-write cycle.
 func ApplyFeel(env Env, deltas map[string]float64) (string, map[string]float64, error) {
 	cfg, err := loadConfig(env)
 	if err != nil {
 		return "", nil, err
 	}
-	var fragment string
+	var rendered string
 	var axes map[string]float64
 	err = engine.WithLock(env.StatePath, func() error {
 		s, err := engine.LoadState(env.StatePath, cfg, env.Now())
@@ -30,14 +30,14 @@ func ApplyFeel(env Env, deltas map[string]float64) (string, map[string]float64, 
 		if err := engine.SaveState(env.StatePath, s); err != nil {
 			return err
 		}
-		fragment = engine.Render(s, cfg)
+		rendered = engine.Render(s, cfg)
 		axes = s.Axes
 		return writeFragment(cfg, s)
 	})
 	if err != nil {
 		return "", nil, err
 	}
-	return fragment, axes, nil
+	return rendered, axes, nil
 }
 
 // Feel parses a JSON delta object and applies it via ApplyFeel.
@@ -46,11 +46,11 @@ func Feel(env Env, deltasJSON string) error {
 	if err := json.Unmarshal([]byte(deltasJSON), &deltas); err != nil {
 		return fmt.Errorf("invalid deltas JSON: %w", err)
 	}
-	fragment, _, err := ApplyFeel(env, deltas)
+	rendered, _, err := ApplyFeel(env, deltas)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(env.Stdout, fragment)
+	fmt.Fprintln(env.Stdout, rendered)
 	return nil
 }
 
