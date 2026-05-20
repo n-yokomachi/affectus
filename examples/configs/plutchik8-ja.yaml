@@ -14,25 +14,4 @@ axes:
   - { name: surprise,     baseline: 0.0, halflife_minutes: 90, opposite: anticipation }
   - { name: anticipation, baseline: 0.0, halflife_minutes: 90, opposite: surprise }
 
-render:
-  threshold: 0.15
-  max_axes: 3
-  bands:
-    - { max: 0.35, label: "かすかな" }
-    - { max: 0.70, label: "ほどほどの" }
-    - { max: 1.00, label: "強い" }
-  template: "いまは{clauses}を感じている。"
-  empty: "いまは穏やかで、心は凪いでいる。"
-  conjunction: "と"
-  separator: "、"
-  axis_phrases:
-    joy: "喜び"
-    sadness: "悲しみ"
-    trust: "信頼感"
-    disgust: "嫌悪感"
-    fear: "不安"
-    anger: "苛立ち"
-    surprise: "驚き"
-    anticipation: "期待"
-
 fragment_file: ""

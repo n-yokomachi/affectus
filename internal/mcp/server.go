@@ -9,8 +9,7 @@ import (
 
 // showResult is the structured output of both tools.
 type showResult struct {
-	Fragment string             `json:"fragment"`
-	Axes     map[string]float64 `json:"axes"`
+	Axes map[string]float64 `json:"axes"`
 }
 
 // feelInput is the input schema of the emotion_feel tool.
@@ -18,24 +17,24 @@ type feelInput struct {
 	Deltas map[string]float64 `json:"deltas"`
 }
 
-const serverVersion = "0.1.0"
+const serverVersion = "0.3.0"
 
 // handleShow computes the current emotion without persisting.
 func handleShow(env cli.Env) (showResult, error) {
-	fragment, axes, err := cli.ComputeShow(env)
+	_, axes, err := cli.ComputeShow(env)
 	if err != nil {
 		return showResult{}, err
 	}
-	return showResult{Fragment: fragment, Axes: axes}, nil
+	return showResult{Axes: axes}, nil
 }
 
 // handleFeel applies self-reported deltas and persists.
 func handleFeel(env cli.Env, in feelInput) (showResult, error) {
-	fragment, axes, err := cli.ApplyFeel(env, in.Deltas)
+	_, axes, err := cli.ApplyFeel(env, in.Deltas)
 	if err != nil {
 		return showResult{}, err
 	}
-	return showResult{Fragment: fragment, Axes: axes}, nil
+	return showResult{Axes: axes}, nil
 }
 
 // Serve runs the affectus MCP server over stdio, exposing emotion_show and
@@ -45,7 +44,7 @@ func Serve(ctx context.Context, env cli.Env) error {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "emotion_show",
-		Description: "Return the current emotion as a natural-language fragment and raw axis values.",
+		Description: "Returns the current emotion as a JSON object of axes with float values 0.0–1.0. Interpret the values relationally per the Plutchik wheel structure documented in your system prompt.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, showResult, error) {
 		res, err := handleShow(env)
 		return nil, res, err
@@ -53,7 +52,7 @@ func Serve(ctx context.Context, env cli.Env) error {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "emotion_feel",
-		Description: "Apply self-reported emotion deltas and return the updated emotion.",
+		Description: "Apply self-reported emotion deltas and return the updated emotion as a JSON object of axes with float values 0.0–1.0. Interpret the values relationally per the Plutchik wheel structure documented in your system prompt.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in feelInput) (*mcp.CallToolResult, showResult, error) {
 		res, err := handleFeel(env, in)
 		return nil, res, err

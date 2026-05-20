@@ -44,7 +44,7 @@ func loadConfig(env Env) (engine.Config, error) {
 	return engine.DefaultConfig()
 }
 
-// writeFragment writes the rendered fragment to cfg.FragmentFile when set.
+// writeFragment writes the current axes JSON snapshot to cfg.FragmentFile when set.
 func writeFragment(cfg engine.Config, s engine.State) error {
 	if cfg.FragmentFile == "" {
 		return nil

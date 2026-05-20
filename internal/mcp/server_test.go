@@ -20,7 +20,7 @@ func mcpTestEnv(t *testing.T) cli.Env {
 	}
 }
 
-func TestHandleShowReturnsFragment(t *testing.T) {
+func TestHandleShowReturnsAxes(t *testing.T) {
 	env := mcpTestEnv(t)
 	if err := cli.Init(env, false); err != nil {
 		t.Fatalf("Init: %v", err)
@@ -29,8 +29,24 @@ func TestHandleShowReturnsFragment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handleShow: %v", err)
 	}
-	if res.Fragment == "" || len(res.Axes) != 8 {
-		t.Fatalf("unexpected show result: %+v", res)
+	if len(res.Axes) != 8 {
+		t.Fatalf("expected 8 axes, got %d: %+v", len(res.Axes), res)
+	}
+}
+
+func TestHandleShowAllZerosAtInit(t *testing.T) {
+	env := mcpTestEnv(t)
+	if err := cli.Init(env, false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	res, err := handleShow(env)
+	if err != nil {
+		t.Fatalf("handleShow: %v", err)
+	}
+	for name, val := range res.Axes {
+		if val != 0.0 {
+			t.Errorf("axis %q = %v, want 0.0 at init", name, val)
+		}
 	}
 }
 
