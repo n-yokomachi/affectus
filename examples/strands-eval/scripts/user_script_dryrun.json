@@ -1,0 +1,8 @@
+{
+  "description": "3-turn dry-run subset of user_script.json for end-to-end smoke test.",
+  "turns": [
+    {"index": 1,  "phase": "positive", "text": "こんにちは。今日は天気もいいね。"},
+    {"index": 2,  "phase": "positive", "text": "実は嬉しいことがあったんだ。"},
+    {"index": 3,  "phase": "negative", "text": "……いや、ごめん、嘘なんだ。本当はつらいことがあって。"}
+  ]
+}
