@@ -1,0 +1,6 @@
+transcripts/
+state/
+results/*.csv
+__pycache__/
+*.pyc
+.pytest_cache/
