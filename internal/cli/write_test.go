@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -106,6 +107,17 @@ func TestFeelWritesFragmentFile(t *testing.T) {
 	}
 	if _, err := os.Stat(fragPath); err != nil {
 		t.Fatalf("fragment file not written: %v", err)
+	}
+	data, err := os.ReadFile(fragPath)
+	if err != nil {
+		t.Fatalf("read fragment file: %v", err)
+	}
+	content := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(content, "{") || !strings.HasSuffix(content, "}") {
+		t.Errorf("fragment file should contain JSON, got %q", content)
+	}
+	if !strings.Contains(content, `"joy"`) {
+		t.Errorf("fragment file missing joy axis: %q", content)
 	}
 }
 

@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/n-yokomachi/affectus/internal/engine"
 )
@@ -35,9 +36,13 @@ func Show(env Env, format string) error {
 		fmt.Fprintln(env.Stdout, axesJSON)
 		return nil
 	case "json":
+		rounded := make(map[string]float64, len(axes))
+		for k, v := range axes {
+			rounded[k] = math.Round(v*100) / 100
+		}
 		enc := json.NewEncoder(env.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]any{"axes": axes})
+		return enc.Encode(map[string]any{"axes": rounded})
 	default:
 		return fmt.Errorf("unknown format %q (want text|json)", format)
 	}
