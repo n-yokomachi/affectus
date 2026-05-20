@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,33 +24,12 @@ type AxisConfig struct {
 	Opposite string `yaml:"opposite"`
 }
 
-// Band maps an upper-bound intensity to an adverb label.
-type Band struct {
-	Max float64 `yaml:"max"`
-	// Label must include any spacing needed between it and the axis phrase
-	// (English uses a trailing space, e.g. "a strong sense of "; Japanese none).
-	Label string `yaml:"label"`
-}
-
-// RenderConfig controls vector-to-natural-language rendering.
-type RenderConfig struct {
-	Threshold   float64           `yaml:"threshold"`
-	MaxAxes     int               `yaml:"max_axes"`
-	Bands       []Band            `yaml:"bands"`
-	Template    string            `yaml:"template"`
-	Empty       string            `yaml:"empty"`
-	Conjunction string            `yaml:"conjunction"`
-	Separator   string            `yaml:"separator"`
-	AxisPhrases map[string]string `yaml:"axis_phrases"`
-}
-
 // Config is the full library configuration.
 type Config struct {
 	Version      int          `yaml:"version"`
 	Clamp        Range        `yaml:"clamp"`
 	DeltaClamp   Range        `yaml:"delta_clamp"`
 	Axes         []AxisConfig `yaml:"axes"`
-	Render       RenderConfig `yaml:"render"`
 	FragmentFile string       `yaml:"fragment_file"`
 }
 
@@ -101,28 +79,6 @@ func (c Config) Validate() error {
 	}
 	if c.DeltaClamp.Min >= c.DeltaClamp.Max {
 		return fmt.Errorf("config: delta_clamp min must be less than max")
-	}
-	if c.Render.MaxAxes <= 0 {
-		return fmt.Errorf("config: render.max_axes must be positive")
-	}
-	if len(c.Render.Bands) == 0 {
-		return fmt.Errorf("config: render.bands must not be empty")
-	}
-	for i := 1; i < len(c.Render.Bands); i++ {
-		if c.Render.Bands[i].Max <= c.Render.Bands[i-1].Max {
-			return fmt.Errorf("config: render.bands must be strictly ascending by max")
-		}
-	}
-	if !strings.Contains(c.Render.Template, "{clauses}") {
-		return fmt.Errorf("config: render.template must contain the {clauses} placeholder")
-	}
-	for _, ax := range c.Axes {
-		if _, ok := c.Render.AxisPhrases[ax.Name]; !ok {
-			return fmt.Errorf("config: render.axis_phrases is missing axis %q", ax.Name)
-		}
-	}
-	if c.Render.Threshold < 0 || c.Render.Threshold > c.Clamp.Max {
-		return fmt.Errorf("config: render.threshold must be between 0 and clamp.max")
 	}
 	return nil
 }

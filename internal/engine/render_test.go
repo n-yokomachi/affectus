@@ -1,71 +1,76 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestRenderMultipleAxes(t *testing.T) {
+func TestRenderAllAxesInConfigOrder(t *testing.T) {
+	cfg, _ := DefaultConfig()
+	s := NewState(cfg, time.Now())
+	s.Axes["joy"] = 0.50
+	s.Axes["trust"] = 0.40
+	s.Axes["surprise"] = 0.20
+	got := Render(s, cfg)
+	// Must be a single-line JSON with all 8 axes in config order
+	want := `{"joy":0.50,"trust":0.40,"fear":0.00,"surprise":0.20,"sadness":0.00,"disgust":0.00,"anger":0.00,"anticipation":0.00}`
+	if got != want {
+		t.Fatalf("Render =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestRenderTwoDecimalPlaces(t *testing.T) {
+	cfg, _ := DefaultConfig()
+	s := NewState(cfg, time.Now())
+	s.Axes["joy"] = 0.333
+	got := Render(s, cfg)
+	if !strings.Contains(got, `"joy":0.33`) {
+		t.Fatalf("expected 2 decimal places for joy in %q", got)
+	}
+}
+
+func TestRenderZeroValuesIncluded(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	s := NewState(cfg, time.Now())
 	s.Axes["joy"] = 0.8
-	s.Axes["anticipation"] = 0.5
-	s.Axes["trust"] = 0.2
 	got := Render(s, cfg)
-	want := "Right now you feel a strong sense of joy, a moderate sense of anticipation and a faint trace of trust."
-	if got != want {
-		t.Fatalf("Render = %q\nwant %q", got, want)
+	if !strings.Contains(got, `"sadness":0.00`) {
+		t.Fatalf("zero sadness axis missing in %q", got)
 	}
 }
 
-func TestRenderEmpty(t *testing.T) {
+func TestRenderEmptyStateAllZeros(t *testing.T) {
 	cfg, _ := DefaultConfig()
-	s := NewState(cfg, time.Now()) // all 0, below threshold 0.15
+	s := NewState(cfg, time.Now()) // all axes at baseline (0.0)
 	got := Render(s, cfg)
-	if got != "Right now you feel calm and even." {
-		t.Fatalf("Render empty = %q", got)
-	}
-}
-
-func TestRenderRespectsMaxAxes(t *testing.T) {
-	cfg, _ := DefaultConfig() // max_axes 3
-	s := NewState(cfg, time.Now())
-	s.Axes["joy"] = 0.9
-	s.Axes["trust"] = 0.8
-	s.Axes["fear"] = 0.7
-	s.Axes["anger"] = 0.6 // 4th highest, must be dropped
-	got := Render(s, cfg)
-	want := "Right now you feel a strong sense of joy, a strong sense of trust and a strong sense of unease."
+	want := `{"joy":0.00,"trust":0.00,"fear":0.00,"surprise":0.00,"sadness":0.00,"disgust":0.00,"anger":0.00,"anticipation":0.00}`
 	if got != want {
-		t.Fatalf("Render = %q\nwant %q", got, want)
+		t.Fatalf("Render empty =\n%q\nwant\n%q", got, want)
 	}
 }
 
-func TestRenderSingleAxis(t *testing.T) {
+func TestRenderNoSpecialEmptyString(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	s := NewState(cfg, time.Now())
-	s.Axes["surprise"] = 0.30 // < 0.35 -> "a faint trace of "
 	got := Render(s, cfg)
-	if got != "Right now you feel a faint trace of surprise." {
-		t.Fatalf("Render = %q", got)
+	// Must be JSON, not a prose "calm and even" string
+	if !strings.HasPrefix(got, "{") || !strings.HasSuffix(got, "}") {
+		t.Fatalf("expected JSON object, got %q", got)
 	}
 }
 
-func TestRenderUsesConfiguredConjunction(t *testing.T) {
-	// Japanese-style joining: separator "、" and conjunction "と", with band
-	// labels carrying no trailing space.
-	cfg, _ := DefaultConfig()
-	cfg.Render.Conjunction = "と"
-	cfg.Render.Separator = "、"
-	cfg.Render.Template = "いまは{clauses}。"
-	cfg.Render.Bands = []Band{{Max: 1.0, Label: "強い"}}
-	cfg.Render.AxisPhrases = map[string]string{"joy": "喜び", "trust": "信頼感"}
-	s := NewState(cfg, time.Now())
-	s.Axes["joy"] = 0.9
-	s.Axes["trust"] = 0.8
+func TestRenderSingleAxisConfig(t *testing.T) {
+	cfg := Config{
+		Clamp:      Range{Min: 0.0, Max: 1.0},
+		DeltaClamp: Range{Min: -1.0, Max: 1.0},
+		Axes: []AxisConfig{
+			{Name: "joy", Baseline: 0.0, HalflifeMinutes: 90},
+		},
+	}
+	s := State{Axes: map[string]float64{"joy": 0.75}}
 	got := Render(s, cfg)
-	want := "いまは強い喜びと強い信頼感。"
-	if got != want {
-		t.Fatalf("Render = %q, want %q", got, want)
+	if got != `{"joy":0.75}` {
+		t.Fatalf("Render single axis = %q", got)
 	}
 }
