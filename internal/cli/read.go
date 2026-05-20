@@ -8,7 +8,7 @@ import (
 )
 
 // ComputeShow loads state, applies decay for output (without persisting), and
-// returns the rendered fragment and the decayed axis values.
+// returns the rendered JSON line and the decayed axis values.
 func ComputeShow(env Env) (string, map[string]float64, error) {
 	cfg, err := loadConfig(env)
 	if err != nil {
@@ -23,19 +23,21 @@ func ComputeShow(env Env) (string, map[string]float64, error) {
 }
 
 // Show prints the current emotion as text or JSON. Read-only: does not persist.
+// text format: one-line JSON of all axes (the Render output).
+// json format: {"axes": {...}} pretty-printed.
 func Show(env Env, format string) error {
-	fragment, axes, err := ComputeShow(env)
+	axesJSON, axes, err := ComputeShow(env)
 	if err != nil {
 		return err
 	}
 	switch format {
 	case "", "text":
-		fmt.Fprintln(env.Stdout, fragment)
+		fmt.Fprintln(env.Stdout, axesJSON)
 		return nil
 	case "json":
 		enc := json.NewEncoder(env.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]any{"fragment": fragment, "axes": axes})
+		return enc.Encode(map[string]any{"axes": axes})
 	default:
 		return fmt.Errorf("unknown format %q (want text|json)", format)
 	}
