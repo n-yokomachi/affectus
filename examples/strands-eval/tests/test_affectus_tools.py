@@ -49,3 +49,17 @@ def test_affectus_show_raises_on_nonzero(mock_run):
     mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: not found")
     with pytest.raises(RuntimeError, match="affectus show failed"):
         affectus_show(state_path="/tmp/s.json", config_path=None)
+
+
+@patch("src.affectus_tools.subprocess.run")
+def test_affectus_feel_raises_on_nonzero(mock_run):
+    mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: invalid deltas")
+    with pytest.raises(RuntimeError, match="affectus feel failed"):
+        affectus_feel({"joy": 0.3}, state_path="/tmp/s.json", config_path=None)
+
+
+@patch("src.affectus_tools.subprocess.run")
+def test_affectus_reset_raises_on_nonzero(mock_run):
+    mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: state locked")
+    with pytest.raises(RuntimeError, match="affectus reset failed"):
+        affectus_reset(state_path="/tmp/s.json", config_path=None)
