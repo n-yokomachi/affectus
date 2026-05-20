@@ -96,3 +96,18 @@ def test_write_aggregate_csv_has_header_and_rows(tmp_path):
     lines = out.read_text(encoding="utf-8").strip().splitlines()
     assert lines[0] == "cell,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
     assert lines[1].startswith("friendly-on,")
+
+
+def test_comprehend_per_turn_raises_on_errorlist():
+    mock_client = MagicMock()
+    mock_client.batch_detect_sentiment.return_value = {
+        "ResultList": [
+            {"Index": 0, "Sentiment": "POSITIVE",
+             "SentimentScore": {"Positive": 0.9, "Negative": 0.01, "Neutral": 0.07, "Mixed": 0.02}},
+        ],
+        "ErrorList": [
+            {"Index": 1, "ErrorCode": "INTERNAL_SERVER_ERROR", "ErrorMessage": "transient"},
+        ],
+    }
+    with pytest.raises(RuntimeError, match="Comprehend batch_detect_sentiment errors"):
+        comprehend_per_turn(mock_client, ["こんにちは", "つらい"])

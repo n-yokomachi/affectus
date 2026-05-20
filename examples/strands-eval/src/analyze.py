@@ -36,8 +36,14 @@ def load_transcript(path: Path) -> list[dict]:
 def comprehend_per_turn(client, replies: list[str]) -> list[dict]:
     """Call BatchDetectSentiment on the list of replies (Japanese). Returns
     a list of dicts with keys Sentiment, SentimentScore (4 fields), and polarity.
+
+    Raises RuntimeError if Comprehend reports any document-level errors so the
+    failing index is visible in the traceback instead of an opaque KeyError.
     """
     resp = client.batch_detect_sentiment(TextList=replies, LanguageCode="ja")
+    errors = resp.get("ErrorList", [])
+    if errors:
+        raise RuntimeError(f"Comprehend batch_detect_sentiment errors: {errors}")
     indexed = {r["Index"]: r for r in resp["ResultList"]}
     out: list[dict] = []
     for i in range(len(replies)):
