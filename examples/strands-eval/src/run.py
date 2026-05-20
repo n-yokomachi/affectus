@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from src.affectus_tools import affectus_feel, affectus_reset
+from src.affectus_tools import affectus_feel, affectus_reset, affectus_show
 from src.agent import build_agent
 
 
@@ -62,18 +62,18 @@ def run_cell(
     if affectus_on:
         affectus_reset(state_path, config_path)
 
-    agent = build_agent(
-        personality=personality,
-        affectus_on=affectus_on,
-        state_path=state_path,
-        config_path=config_path,
-    )
+    agent = build_agent(personality=personality, affectus_on=affectus_on)
 
     transcript_path = transcripts_dir / f"{cell_id}.jsonl"
     with transcript_path.open("w", encoding="utf-8") as out:
         for entry in script:
             user_utt = entry["text"]
-            raw_reply = str(agent(user_utt))
+            if affectus_on:
+                current_state = affectus_show(state_path, config_path)
+                message = f"[現在のあなたの感情: {current_state}]\n\n{user_utt}"
+            else:
+                message = user_utt
+            raw_reply = str(agent(message))
             if affectus_on:
                 visible_reply = strip_feel_tag(raw_reply)
                 deltas = parse_feel_tag(raw_reply)

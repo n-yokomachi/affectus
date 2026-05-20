@@ -1,3 +1,4 @@
+# examples/strands-eval/src/agent.py
 """Build a Strands Agent for a given (personality, affectus_on) cell."""
 
 from __future__ import annotations
@@ -7,8 +8,6 @@ from pathlib import Path
 
 from strands import Agent
 from strands.models import BedrockModel
-
-from src.affectus_tools import affectus_show
 
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -25,34 +24,26 @@ def _load_prompt(name: str) -> str:
     return (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
 
 
-def build_agent(
-    personality: str,
-    affectus_on: bool,
-    state_path: str,
-    config_path: str | None = None,
-):
+def build_agent(personality: str, affectus_on: bool):
     """Build a Strands Agent for the (personality, affectus_on) cell.
 
-    When affectus_on is True, the affectus block is appended to the system
-    prompt with the current `affectus show` output interpolated. The agent
-    emits `<feel>{...}</feel>` deltas as part of its reply text; the
-    orchestrator (run.py) parses and applies them. No tools are registered
-    on the agent — keeps a single code path for delta application.
+    When affectus_on is True, the affectus block (Plutchik relational reading
+    + delta-reporting protocol) is appended to the system prompt. The agent's
+    per-turn emotion state is NOT included in the system prompt; the
+    orchestrator (run.py) prepends a `[現在のあなたの感情: ...]` line to each
+    user message at run time. This way the LLM sees the live, evolving state
+    each turn instead of a frozen snapshot.
 
-    config_path: Path to the affectus config YAML. If None, affectus falls
-    back to the AFFECTUS_CONFIG env var or its built-in default (English).
-    Pass an explicit path to ensure Japanese rendering.
+    The agent emits `<feel>{...}</feel>` deltas as part of its reply text;
+    the orchestrator parses and applies them. No tools are registered — keeps
+    a single code path for delta application.
     """
     if personality not in VALID_PERSONALITIES:
         raise ValueError(f"unknown personality: {personality!r}")
 
     base = _load_prompt(personality)
-
     if affectus_on:
-        block = _load_prompt("affectus-block")
-        state_text = affectus_show(state_path, config_path)
-        block_filled = block.replace("{{affectus_state}}", state_text)
-        system_prompt = base.rstrip() + "\n\n" + block_filled
+        system_prompt = base.rstrip() + "\n\n" + _load_prompt("affectus-block")
     else:
         system_prompt = base.rstrip()
 

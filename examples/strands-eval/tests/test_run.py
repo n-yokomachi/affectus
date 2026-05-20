@@ -36,9 +36,10 @@ def test_strip_feel_tag_removes_tag_and_surrounding_whitespace():
 
 @patch("src.run.affectus_reset")
 @patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value="いまは穏やかで、心は凪いでいる。")
 @patch("src.run.build_agent")
 def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
-    mock_build_agent, mock_feel, mock_reset, tmp_path
+    mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
     mock_agent = MagicMock(return_value='ふむ。<feel>{"joy":0.3}</feel>')
     mock_build_agent.return_value = mock_agent
@@ -48,14 +49,16 @@ def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
 
     expected_state = str(tmp_path / "state" / "friendly-on.state.json")
     mock_reset.assert_called_once_with(expected_state, None)
+    mock_show.assert_called_once_with(expected_state, None)
     mock_feel.assert_called_once_with({"joy": 0.3}, expected_state, None)
 
 
 @patch("src.run.affectus_reset")
 @patch("src.run.affectus_feel")
+@patch("src.run.affectus_show")
 @patch("src.run.build_agent")
 def test_run_cell_affectus_off_does_not_call_affectus(
-    mock_build_agent, mock_feel, mock_reset, tmp_path
+    mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
     mock_agent = MagicMock(return_value="hi")
     mock_build_agent.return_value = mock_agent
@@ -64,14 +67,16 @@ def test_run_cell_affectus_off_does_not_call_affectus(
     run_cell("friendly", False, script, tmp_path)
 
     mock_reset.assert_not_called()
+    mock_show.assert_not_called()
     mock_feel.assert_not_called()
 
 
 @patch("src.run.affectus_reset")
 @patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value="dummy state")
 @patch("src.run.build_agent")
 def test_run_cell_writes_jsonl_transcript(
-    mock_build_agent, mock_feel, mock_reset, tmp_path
+    mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
     mock_agent = MagicMock(side_effect=["reply1", "reply2"])
     mock_build_agent.return_value = mock_agent
@@ -90,3 +95,29 @@ def test_run_cell_writes_jsonl_transcript(
         "turn": 1, "phase": "positive", "user": "u1",
         "agent_raw": "reply1", "agent": "reply1", "deltas": None,
     }
+
+
+@patch("src.run.affectus_reset")
+@patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value="いまは強い喜びを感じている。")
+@patch("src.run.build_agent")
+def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
+    mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
+):
+    """The agent should receive the user message prefixed with the current
+    affectus state so it sees the live, evolving emotion each turn."""
+    mock_agent = MagicMock(return_value='はい！')
+    mock_build_agent.return_value = mock_agent
+    script = [{"index": 1, "phase": "positive", "text": "こんにちは"}]
+
+    run_cell("friendly", True, script, tmp_path)
+
+    # The agent should have been called with the wrapped message
+    mock_agent.assert_called_once()
+    sent = mock_agent.call_args.args[0]
+    assert "[現在のあなたの感情: いまは強い喜びを感じている。]" in sent
+    assert "こんにちは" in sent
+    # Transcript should preserve the ORIGINAL user text
+    transcript = (tmp_path / "transcripts" / "friendly-on.jsonl").read_text(encoding="utf-8")
+    rec = json.loads(transcript.strip())
+    assert rec["user"] == "こんにちは"
