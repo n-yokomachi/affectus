@@ -51,5 +51,6 @@ def build_agent(personality: str, affectus_on: bool):
         model_id=DEFAULT_MODEL_ID,
         region_name=DEFAULT_REGION,
         temperature=0.0,
+        max_tokens=512,
     )
     return Agent(model=model, system_prompt=system_prompt, tools=[])
