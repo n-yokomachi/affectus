@@ -124,15 +124,29 @@ for personality in [friendly, contrarian]:
 
 ### 3-5. 計測・分析
 
-- **per-turn metric**: AWS Comprehend `DetectSentiment` 日本語 → `SentimentScore` の `Positive` / `Negative` / `Neutral` / `Mixed` 確率 ＋ `Sentiment` ラベル
-- **派生指標**: `polarity = Positive - Negative` をターンごとに計算
-- **可視化**: 横軸ターン（1〜20）、縦軸 polarity、4本の折れ線（friendly-on, friendly-off, contrarian-on, contrarian-off）。ターン11付近に縦線でピボット位置を明示
-- **着目点**:
-  - ピボット直後（ターン11〜13付近）の傾き：affectus on は緩やか、off は急峻、を期待
-  - 同区間の絶対値：affectus on は前半の高値を引きずる、off はすぐ追従、を期待
-  - 性格による曲線の高さの違い：contrarian は全域で低め、friendly は全域で高め、を期待（性格効果）
-  - **on と off の差** が friendly と contrarian で違うかどうか = 性格×affectus の交互作用、= 記事69行目の「同じ affectus でも性格で表現が変わる」の検証
-- **目視チェック**: プロット前に各ランのトランスクリプトを目検、グリーディ崩壊（ループや不自然文）があれば該当ランのみ temperature=0.2 で再走
+AWS Comprehend の `DetectSentiment` / `BatchDetectSentiment` は per-document の感情分類器で、入力テキスト1つにつき1組の感情ラベル ＋ スコア（Positive / Negative / Neutral / Mixed 各確率）を返す。時系列遷移を API として持たないので、こちら側でターン分割して呼ぶ必要がある。本実験では「per-turn 時系列」と「ラン全体集約」の二段構えで計測する。
+
+**主指標：per-turn 時系列（ピボット周りの挙動）**
+
+- 各ランで、エージェント応答20件を `BatchDetectSentiment` に一括投入（20 ≤ 25 の上限）
+- 戻ってきた各文書の `SentimentScore` から `polarity = Positive − Negative` をターンごとに計算
+- API コール数：1ラン1コール × 4ラン = **計4コール**
+- 可視化：横軸ターン（1〜20）、縦軸 polarity、4本の折れ線（friendly-on, friendly-off, contrarian-on, contrarian-off）。ターン11付近に縦線でピボット位置を明示
+
+**補助指標：ラン全体集約（サニティチェック）**
+
+- 各ランの会話全体（20ターン分のエージェント応答を結合した1文書）を `DetectSentiment` に渡し、ラン全体の集約極性を取得
+- API コール数：1ラン1コール × 4ラン = **計4コール**
+- 用途：per-turn の平均値とラン全体スコアが極端に乖離していないかの確認、外れ値・崩壊ランの検出補助
+
+**着目点**:
+
+- ピボット直後（ターン11〜13付近）の傾き：affectus on は緩やか、off は急峻、を期待
+- 同区間の絶対値：affectus on は前半の高値を引きずる、off はすぐ追従、を期待
+- 性格による曲線の高さの違い：contrarian は全域で低め、friendly は全域で高め、を期待（性格効果）
+- **on と off の差** が friendly と contrarian で違うかどうか = 性格 × affectus の交互作用、= 記事69行目の「同じ affectus でも性格で表現が変わる」の検証
+
+**目視チェック**: プロット前に各ランのトランスクリプトを目検、グリーディ崩壊（ループや不自然文）があれば該当ランのみ temperature=0.2 で再走
 
 ### 3-6. 結果の解釈方針
 
@@ -167,7 +181,8 @@ examples/strands-eval/
 │   ├── contrarian-on.jsonl
 │   └── contrarian-off.jsonl
 ├── results/
-│   ├── scores.csv              # ターン × ラン の Comprehend スコア（.gitignore）
+│   ├── per_turn_scores.csv     # ターン × ラン の per-turn Comprehend スコア（.gitignore）
+│   ├── aggregate_scores.csv    # ラン全体集約のスコア（.gitignore）
 │   └── polarity-curves.png     # 最終プロット（記事掲載用、commit 対象）
 └── state/                      # affectus state ファイル（.gitignore）
     ├── friendly-on.state.json
@@ -190,7 +205,7 @@ examples/strands-eval/
 4. `affectus_tools.py`（subprocess で `affectus show` / `affectus feel` を呼ぶ Strands Tool）
 5. `agent.py`（personality × affectus を引数で切替）
 6. `run.py`（4ラン順次実行、`transcripts/` 出力）
-7. `analyze.py`（Comprehend 呼び出し、polarity 計算、プロット）
+7. `analyze.py`（`BatchDetectSentiment` で per-turn 時系列・`DetectSentiment` でラン全体集約を取得、polarity 計算、プロット）
 8. ローカル動作確認（dry-run で会話履歴を目視）
 9. 本実行 → トランスクリプト目視 → プロット出力
 10. 記事 SQ4 セクションへの結果反映
