@@ -23,11 +23,13 @@ FEEL_RE = re.compile(r"<feel>\s*(\{.*?\})\s*</feel>", re.DOTALL)
 
 
 def parse_feel_tag(text: str) -> dict | None:
-    m = FEEL_RE.search(text)
-    if not m:
+    # Protocol says the feel tag is the LAST element of the reply, so pick the
+    # last match if the LLM emits multiple tags by mistake.
+    matches = FEEL_RE.findall(text)
+    if not matches:
         return None
     try:
-        parsed = json.loads(m.group(1))
+        parsed = json.loads(matches[-1])
     except json.JSONDecodeError:
         return None
     if not isinstance(parsed, dict):
@@ -97,8 +99,12 @@ def run_all(script_path: Path, base_dir: Path, config_path: str | None = None) -
         script = json.load(f)["turns"]
     written: list[Path] = []
     for personality, on in CELLS:
-        print(f"[run] cell={personality}-{'on' if on else 'off'}", file=sys.stderr)
-        written.append(run_cell(personality, on, script, base_dir, config_path))
+        cell_id = f"{personality}-{'on' if on else 'off'}"
+        print(f"[run] cell={cell_id}", file=sys.stderr)
+        try:
+            written.append(run_cell(personality, on, script, base_dir, config_path))
+        except Exception as exc:
+            print(f"[run] ERROR in {cell_id}: {exc}", file=sys.stderr)
     return written
 
 
