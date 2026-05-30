@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,7 +83,11 @@ func TestInitRussellWritesRussellConfig(t *testing.T) {
 
 func TestInitUnknownModel(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, "freud", false); err == nil {
+	err := Init(env, "freud", false)
+	if err == nil {
 		t.Fatal("Init with unknown model should error")
+	}
+	if !strings.Contains(err.Error(), "plutchik") {
+		t.Errorf("error should list valid models, got: %v", err)
 	}
 }

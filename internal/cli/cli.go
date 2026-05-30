@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/n-yokomachi/affectus/internal/engine"
@@ -57,7 +59,12 @@ func writeFragment(cfg engine.Config, s engine.State) error {
 func Init(env Env, model string, force bool) error {
 	yamlBytes, ok := engine.Models[model]
 	if !ok {
-		return fmt.Errorf("unknown model %q (valid: plutchik, russell)", model)
+		keys := make([]string, 0, len(engine.Models))
+		for k := range engine.Models {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		return fmt.Errorf("unknown model %q (valid: %s)", model, strings.Join(keys, ", "))
 	}
 	for _, p := range []string{env.ConfigPath, env.StatePath} {
 		if _, err := os.Stat(p); err == nil && !force {
