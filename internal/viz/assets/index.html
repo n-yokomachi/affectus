@@ -31,7 +31,7 @@
       <div class="panel-sub">petal length = current value per axis</div>
       <svg id="wheel" width="320" height="320" viewBox="0 0 320 320"></svg>
     </div>
-    <div class="panel" id="scatter-panel">
+    <div class="panel hidden" id="scatter-panel">
       <div class="panel-title">valence &times; arousal (Russell circumplex)</div>
       <div class="panel-sub">dot = current core affect; faded trail = recent trajectory (session only)</div>
       <svg id="scatter" width="340" height="340" viewBox="0 0 340 340"></svg>
@@ -219,9 +219,12 @@ function render(data) {
   show("bars", !isRussell);
   show("values", isRussell);
   if (isRussell) {
-    trail.push({v: (axisByName(data.axes,"valence")||{}).value || 0,
-                a: (axisByName(data.axes,"arousal")||{}).value || 0});
-    if (trail.length > TRAIL_MAX) trail.shift();
+    const Vax = axisByName(data.axes, "valence");
+    const Aax = axisByName(data.axes, "arousal");
+    if (Vax && Aax) {
+      trail.push({v: Vax.value, a: Aax.value});
+      if (trail.length > TRAIL_MAX) trail.shift();
+    }
     document.getElementById("side-title").textContent = "core affect values";
     document.getElementById("side-sub").textContent = "valence ∈ [−1,+1], arousal ∈ [0,+1]";
     renderScatter(data.axes);
