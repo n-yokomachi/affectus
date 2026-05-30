@@ -1,0 +1,15 @@
+# Russell core affect (2軸連続体) 設定サンプル。
+# affectus init --model russell で ~/.config/affectus/config.yaml に書き出される
+# デフォルトと同じ内容。--config でこのファイルを直接指定することもできる。
+version: 1
+model: russell
+clamp:       { min: -1.0, max: 1.0 }   # フォールバック（軸ごとの range が優先される）
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  # valence: 快-不快。-1.0(不快) 〜 +1.0(快)。中立 0.0 へ減衰。
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+  # arousal: 覚醒度。0.0(沈静) 〜 +1.0(高覚醒)。低〜中程度 0.3 へ減衰。
+  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min:  0.0, max: 1.0 } }
+
+fragment_file: ""
