@@ -89,7 +89,7 @@ function renderWheel(axes, clamp) {
 const ETA_EPS = 0.01;
 function formatEta(ax) {
   const hl = ax.halflife_minutes;
-  const baseline = ax.baseline || 0;
+  const baseline = ax.baseline ?? 0;
   if (!hl || hl <= 0) return "—";
   const diff = Math.abs(ax.value - baseline);
   if (diff <= ETA_EPS) return "—";

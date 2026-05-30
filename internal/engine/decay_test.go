@@ -68,3 +68,24 @@ func TestDecayTowardNonZeroBaseline(t *testing.T) {
 		t.Fatalf("joy = %v, want 0.5", out.Axes["joy"])
 	}
 }
+
+func TestDecayRussellArousalToBaseline(t *testing.T) {
+	cfg, err := ParseConfig(Models["russell"])
+	if err != nil {
+		t.Fatalf("russell config: %v", err)
+	}
+	base := time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC)
+	s := NewState(cfg, base)
+	s.Axes["valence"] = 0.8
+	s.Axes["arousal"] = 0.9
+	// after one arousal halflife (90m): value -> baseline + (v-baseline)/2
+	out := Decay(s, cfg, base.Add(90*time.Minute))
+	// valence: 0.0 + (0.8-0.0)*0.5 = 0.4
+	if !almostEqual(out.Axes["valence"], 0.4) {
+		t.Errorf("valence after one halflife = %v, want 0.4", out.Axes["valence"])
+	}
+	// arousal: 0.3 + (0.9-0.3)*0.5 = 0.6  (decays toward 0.3 baseline, NOT 0)
+	if !almostEqual(out.Axes["arousal"], 0.6) {
+		t.Errorf("arousal after one halflife = %v, want 0.6 (baseline 0.3)", out.Axes["arousal"])
+	}
+}
