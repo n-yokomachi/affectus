@@ -115,6 +115,26 @@ func TestMuxServes404(t *testing.T) {
 	}
 }
 
+func TestStateJSONPlutchikRangeFallsBackToClamp(t *testing.T) {
+	cfg, _ := engine.DefaultConfig() // plutchik: no per-axis ranges
+	b, err := stateJSON(cfg, filepath.Join(t.TempDir(), "missing.json"), time.Now())
+	if err != nil {
+		t.Fatalf("stateJSON: %v", err)
+	}
+	var resp stateResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Model != "plutchik" {
+		t.Errorf("model = %q, want plutchik", resp.Model)
+	}
+	for _, ax := range resp.Axes {
+		if ax.Range.Min != 0.0 || ax.Range.Max != 1.0 {
+			t.Errorf("axis %q range = %+v, want global clamp {0,1}", ax.Name, ax.Range)
+		}
+	}
+}
+
 func TestStateJSONIncludesModelAndPerAxisRange(t *testing.T) {
 	cfg, err := engine.ParseConfig(engine.Models["russell"])
 	if err != nil {

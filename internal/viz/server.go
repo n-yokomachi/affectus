@@ -58,6 +58,7 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 		Axes:      make([]axisValue, 0, len(cfg.Axes)),
 	}
 	for _, ax := range cfg.Axes {
+		// per-axis range override, else global clamp (mirrors engine.axisClamp)
 		r := clampRange{Min: cfg.Clamp.Min, Max: cfg.Clamp.Max}
 		if ax.Range != nil {
 			r = clampRange{Min: ax.Range.Min, Max: ax.Range.Max}
