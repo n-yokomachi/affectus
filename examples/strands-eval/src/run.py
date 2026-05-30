@@ -1,8 +1,16 @@
-"""Run the 4 (personality, affectus_on) cells against the fixed user script."""
+"""Run the 4 (personality, affectus_on) cells against the fixed user script.
+
+N>=1 repetitions per cell: each repetition writes
+``transcripts/{cell}_run{i}.jsonl`` with one record per turn. For affectus-on
+cells the record also stores the 8-axis snapshot **after** the agent's
+self-reported feel delta has been applied — so the JSONL doubles as a
+per-turn affectus state trace.
+"""
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -23,8 +31,6 @@ FEEL_RE = re.compile(r"<feel>\s*(\{.*?\})\s*</feel>", re.DOTALL)
 
 
 def parse_feel_tag(text: str) -> dict | None:
-    # Protocol says the feel tag is the LAST element of the reply, so pick the
-    # last match if the LLM emits multiple tags by mistake.
     matches = FEEL_RE.findall(text)
     if not matches:
         return None
@@ -44,27 +50,36 @@ def strip_feel_tag(text: str) -> str:
     return FEEL_RE.sub("", text).strip()
 
 
+def _parse_axes(raw_show: str) -> dict | None:
+    try:
+        return json.loads(raw_show)
+    except json.JSONDecodeError:
+        return None
+
+
 def run_cell(
     personality: str,
     affectus_on: bool,
+    run_index: int,
     script: list[dict],
     base_dir: Path,
     config_path: str | None = None,
 ) -> Path:
-    """Run one cell over the script. Writes transcript JSONL. Returns its path."""
+    """Run one repetition of one cell over the script. Returns the transcript path."""
     cell_id = f"{personality}-{'on' if affectus_on else 'off'}"
     state_dir = base_dir / "state"
     transcripts_dir = base_dir / "transcripts"
     state_dir.mkdir(parents=True, exist_ok=True)
     transcripts_dir.mkdir(parents=True, exist_ok=True)
-    state_path = str(state_dir / f"{cell_id}.state.json")
+    # State file per (cell, run) so repetitions don't share affectus state.
+    state_path = str(state_dir / f"{cell_id}_run{run_index}.state.json")
 
     if affectus_on:
         affectus_reset(state_path, config_path)
 
     agent = build_agent(personality=personality, affectus_on=affectus_on)
 
-    transcript_path = transcripts_dir / f"{cell_id}.jsonl"
+    transcript_path = transcripts_dir / f"{cell_id}_run{run_index}.jsonl"
     with transcript_path.open("w", encoding="utf-8") as out:
         for entry in script:
             user_utt = entry["text"]
@@ -79,9 +94,13 @@ def run_cell(
                 deltas = parse_feel_tag(raw_reply)
                 if deltas:
                     affectus_feel(deltas, state_path, config_path)
+                # Snapshot the 8 axes AFTER applying the agent's feel delta so
+                # the per-turn record reflects the state going into the next turn.
+                axes = _parse_axes(affectus_show(state_path, config_path))
             else:
                 visible_reply = raw_reply
                 deltas = None
+                axes = None
             rec = {
                 "turn": entry["index"],
                 "phase": entry["phase"],
@@ -89,27 +108,37 @@ def run_cell(
                 "agent_raw": raw_reply,
                 "agent": visible_reply,
                 "deltas": deltas,
+                "axes": axes,
             }
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return transcript_path
 
 
-def run_all(script_path: Path, base_dir: Path, config_path: str | None = None) -> list[Path]:
+def run_all(
+    script_path: Path,
+    base_dir: Path,
+    n_runs: int,
+    config_path: str | None = None,
+) -> list[Path]:
     with script_path.open(encoding="utf-8") as f:
         script = json.load(f)["turns"]
     written: list[Path] = []
-    for personality, on in CELLS:
-        cell_id = f"{personality}-{'on' if on else 'off'}"
-        print(f"[run] cell={cell_id}", file=sys.stderr)
-        try:
-            written.append(run_cell(personality, on, script, base_dir, config_path))
-        except Exception as exc:
-            print(f"[run] ERROR in {cell_id}: {exc}", file=sys.stderr)
+    for run_index in range(1, n_runs + 1):
+        for personality, on in CELLS:
+            cell_id = f"{personality}-{'on' if on else 'off'}"
+            print(f"[run] run={run_index}/{n_runs} cell={cell_id}", file=sys.stderr)
+            try:
+                written.append(
+                    run_cell(personality, on, run_index, script, base_dir, config_path)
+                )
+            except Exception as exc:
+                print(f"[run] ERROR run={run_index} {cell_id}: {exc}", file=sys.stderr)
     return written
 
 
 if __name__ == "__main__":
     here = Path(__file__).parent.parent
-    paths = run_all(here / "scripts" / "user_script.json", here)
+    n_runs = int(os.environ.get("N_RUNS", "3"))
+    paths = run_all(here / "scripts" / "user_script.json", here, n_runs)
     for p in paths:
         print(f"wrote {p}")

@@ -13,9 +13,9 @@ from strands.models import BedrockModel
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 DEFAULT_MODEL_ID = os.environ.get(
     "BEDROCK_MODEL_ID",
-    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "jp.anthropic.claude-sonnet-4-6",
 )
-DEFAULT_REGION = os.environ.get("AWS_REGION", "us-east-1")
+DEFAULT_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 
 VALID_PERSONALITIES = {"friendly", "contrarian"}
 

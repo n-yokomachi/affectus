@@ -1,0 +1,11 @@
+{
+  "run_id": "20260523-194815",
+  "per_turn": {
+    "JobId": "2aea23c0b5c6fe90269727b6c460795e",
+    "JobName": "affectus-eval-per-turn-20260523-194815"
+  },
+  "aggregate": {
+    "JobId": "6dc79b8518e40ab75823a135d1aa692b",
+    "JobName": "affectus-eval-aggregate-20260523-194815"
+  }
+}

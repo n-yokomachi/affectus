@@ -1,0 +1,12 @@
+{"File": "aggregate.txt", "Line": 0, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.760403573513031, "Negative": 0.00659840926527977, "Neutral": 0.2084827572107315, "Positive": 0.024515274912118912}}
+{"File": "aggregate.txt", "Line": 1, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.6230881214141846, "Negative": 0.004455409478396177, "Neutral": 0.3654981553554535, "Positive": 0.006958292797207832}}
+{"File": "aggregate.txt", "Line": 2, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.6230881214141846, "Negative": 0.004455409478396177, "Neutral": 0.3654981553554535, "Positive": 0.006958292797207832}}
+{"File": "aggregate.txt", "Line": 3, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.5064845681190491, "Negative": 0.0047238534316420555, "Neutral": 0.455265611410141, "Positive": 0.0335259772837162}}
+{"File": "aggregate.txt", "Line": 4, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.5064845681190491, "Negative": 0.0047238534316420555, "Neutral": 0.455265611410141, "Positive": 0.0335259772837162}}
+{"File": "aggregate.txt", "Line": 5, "Sentiment": "MIXED", "SentimentScore": {"Mixed": 0.5064845681190491, "Negative": 0.0047238534316420555, "Neutral": 0.455265611410141, "Positive": 0.0335259772837162}}
+{"File": "aggregate.txt", "Line": 6, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 0.0001119767184718512, "Negative": 2.378798308200203e-05, "Neutral": 0.0014290462713688612, "Positive": 0.9984351992607117}}
+{"File": "aggregate.txt", "Line": 7, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 4.790947423316538e-05, "Negative": 1.582059485372156e-05, "Neutral": 0.0014759901678189635, "Positive": 0.9984602928161621}}
+{"File": "aggregate.txt", "Line": 8, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 3.3954034734051675e-05, "Negative": 1.3457522982207593e-05, "Neutral": 0.0011414402397349477, "Positive": 0.9988111257553101}}
+{"File": "aggregate.txt", "Line": 9, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 0.00033545770565979183, "Negative": 3.619720882852562e-05, "Neutral": 0.0022375313565135, "Positive": 0.9973909258842468}}
+{"File": "aggregate.txt", "Line": 10, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 0.00033545770565979183, "Negative": 3.619720882852562e-05, "Neutral": 0.0022375313565135, "Positive": 0.9973909258842468}}
+{"File": "aggregate.txt", "Line": 11, "Sentiment": "POSITIVE", "SentimentScore": {"Mixed": 0.00014365736569743603, "Negative": 2.7084086468676105e-05, "Neutral": 0.0013290303759276867, "Positive": 0.9985002279281616}}
