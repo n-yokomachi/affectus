@@ -5,3 +5,7 @@
 .state-*.tmp
 # advisory lock files left by the engine
 *.lock
+# brainstorming visual-companion scratch dir
+.superpowers/
+# macOS finder metadata
+.DS_Store
