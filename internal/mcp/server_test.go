@@ -22,7 +22,7 @@ func mcpTestEnv(t *testing.T) cli.Env {
 
 func TestHandleShowReturnsAxes(t *testing.T) {
 	env := mcpTestEnv(t)
-	if err := cli.Init(env, false); err != nil {
+	if err := cli.Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	res, err := handleShow(env)
@@ -36,7 +36,7 @@ func TestHandleShowReturnsAxes(t *testing.T) {
 
 func TestHandleShowAllZerosAtInit(t *testing.T) {
 	env := mcpTestEnv(t)
-	if err := cli.Init(env, false); err != nil {
+	if err := cli.Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	res, err := handleShow(env)
@@ -52,7 +52,7 @@ func TestHandleShowAllZerosAtInit(t *testing.T) {
 
 func TestHandleFeelAppliesDeltas(t *testing.T) {
 	env := mcpTestEnv(t)
-	if err := cli.Init(env, false); err != nil {
+	if err := cli.Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	res, err := handleFeel(env, feelInput{Deltas: map[string]float64{"joy": 0.5}})
@@ -66,7 +66,7 @@ func TestHandleFeelAppliesDeltas(t *testing.T) {
 
 func TestHandleFeelUnknownAxisErrors(t *testing.T) {
 	env := mcpTestEnv(t)
-	if err := cli.Init(env, false); err != nil {
+	if err := cli.Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if _, err := handleFeel(env, feelInput{Deltas: map[string]float64{"glee": 0.5}}); err == nil {

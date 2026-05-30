@@ -47,10 +47,11 @@ func run(args []string) error {
 	case "init":
 		ifs := flag.NewFlagSet("init", flag.ContinueOnError)
 		force := ifs.Bool("force", false, "overwrite existing files")
+		model := ifs.String("model", "plutchik", "emotion model: plutchik|russell")
 		if err := ifs.Parse(cmdArgs); err != nil {
 			return err
 		}
-		return cli.Init(env, *force)
+		return cli.Init(env, *model, *force)
 	case "show":
 		sfs := flag.NewFlagSet("show", flag.ContinueOnError)
 		format := sfs.String("format", "text", "output format: text|json")

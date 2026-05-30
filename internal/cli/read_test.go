@@ -8,7 +8,7 @@ import (
 
 func TestComputeShowAfterInit(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	axesJSON, axes, err := ComputeShow(env)
@@ -26,7 +26,7 @@ func TestComputeShowAfterInit(t *testing.T) {
 
 func TestShowTextFormat(t *testing.T) {
 	env, out := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	out.Reset()
@@ -45,7 +45,7 @@ func TestShowTextFormat(t *testing.T) {
 
 func TestShowJSONFormat(t *testing.T) {
 	env, out := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	out.Reset()
@@ -65,7 +65,7 @@ func TestShowJSONFormat(t *testing.T) {
 
 func TestShowJSONFormatNoFragmentKey(t *testing.T) {
 	env, out := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	out.Reset()
@@ -79,7 +79,7 @@ func TestShowJSONFormatNoFragmentKey(t *testing.T) {
 
 func TestShowUnknownFormat(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Show(env, "xml"); err == nil {
@@ -89,7 +89,7 @@ func TestShowUnknownFormat(t *testing.T) {
 
 func TestGetOutputsAxesJSON(t *testing.T) {
 	env, out := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	out.Reset()

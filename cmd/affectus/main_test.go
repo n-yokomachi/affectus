@@ -45,3 +45,24 @@ func TestRunVizRejectsBadFlag(t *testing.T) {
 		t.Fatalf("viz should be a recognized command, got: %v", err)
 	}
 }
+
+func TestRunInitRussell(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	state := filepath.Join(dir, "state.json")
+	if err := run([]string{"--config", cfg, "--state", state, "init", "--model", "russell"}); err != nil {
+		t.Fatalf("run init --model russell: %v", err)
+	}
+	if err := run([]string{"--config", cfg, "--state", state, "feel", `{"valence":0.5,"arousal":0.4}`}); err != nil {
+		t.Fatalf("feel on russell config: %v", err)
+	}
+}
+
+func TestRunInitUnknownModel(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	state := filepath.Join(dir, "state.json")
+	if err := run([]string{"--config", cfg, "--state", state, "init", "--model", "freud"}); err == nil {
+		t.Fatal("unknown model should error")
+	}
+}

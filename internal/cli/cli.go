@@ -52,9 +52,13 @@ func writeFragment(cfg engine.Config, s engine.State) error {
 	return os.WriteFile(cfg.FragmentFile, []byte(engine.Render(s, cfg)+"\n"), 0o644)
 }
 
-// Init writes the default config and a baseline state file. Existing files are
-// only overwritten when force is true.
-func Init(env Env, force bool) error {
+// Init writes the config for the given model and a baseline state file.
+// Existing files are only overwritten when force is true.
+func Init(env Env, model string, force bool) error {
+	yamlBytes, ok := engine.Models[model]
+	if !ok {
+		return fmt.Errorf("unknown model %q (valid: plutchik, russell)", model)
+	}
 	for _, p := range []string{env.ConfigPath, env.StatePath} {
 		if _, err := os.Stat(p); err == nil && !force {
 			return fmt.Errorf("%s already exists (use --force to overwrite)", p)
@@ -63,10 +67,10 @@ func Init(env Env, force bool) error {
 	if err := os.MkdirAll(filepath.Dir(env.ConfigPath), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(env.ConfigPath, engine.DefaultConfigYAML, 0o644); err != nil {
+	if err := os.WriteFile(env.ConfigPath, yamlBytes, 0o644); err != nil {
 		return err
 	}
-	cfg, err := engine.DefaultConfig()
+	cfg, err := engine.ParseConfig(yamlBytes)
 	if err != nil {
 		return err
 	}
@@ -77,6 +81,6 @@ func Init(env Env, force bool) error {
 	if out == nil {
 		out = io.Discard
 	}
-	fmt.Fprintf(out, "initialized config=%s state=%s\n", env.ConfigPath, env.StatePath)
+	fmt.Fprintf(out, "initialized model=%s config=%s state=%s\n", model, env.ConfigPath, env.StatePath)
 	return nil
 }

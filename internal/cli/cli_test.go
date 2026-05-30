@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/n-yokomachi/affectus/internal/engine"
 )
 
 func testEnv(t *testing.T) (Env, *bytes.Buffer) {
@@ -37,7 +39,7 @@ func TestResolvePathUsesEnv(t *testing.T) {
 
 func TestInitCreatesFiles(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if _, err := os.Stat(env.ConfigPath); err != nil {
@@ -50,13 +52,37 @@ func TestInitCreatesFiles(t *testing.T) {
 
 func TestInitRefusesOverwriteWithoutForce(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("first Init: %v", err)
 	}
-	if err := Init(env, false); err == nil {
+	if err := Init(env, "plutchik", false); err == nil {
 		t.Fatal("second Init without --force should fail")
 	}
-	if err := Init(env, true); err != nil {
+	if err := Init(env, "plutchik", true); err != nil {
 		t.Fatalf("Init with --force should succeed: %v", err)
+	}
+}
+
+func TestInitRussellWritesRussellConfig(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "russell", false); err != nil {
+		t.Fatalf("Init russell: %v", err)
+	}
+	cfg, err := engine.LoadConfig(env.ConfigPath)
+	if err != nil {
+		t.Fatalf("load written config: %v", err)
+	}
+	if cfg.Model != "russell" {
+		t.Errorf("written model = %q, want russell", cfg.Model)
+	}
+	if len(cfg.Axes) != 2 {
+		t.Errorf("written axes = %d, want 2", len(cfg.Axes))
+	}
+}
+
+func TestInitUnknownModel(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "freud", false); err == nil {
+		t.Fatal("Init with unknown model should error")
 	}
 }

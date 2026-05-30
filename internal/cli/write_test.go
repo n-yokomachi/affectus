@@ -10,7 +10,7 @@ import (
 
 func TestFeelAppliesDeltas(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Feel(env, `{"joy":0.6,"anticipation":0.3}`); err != nil {
@@ -27,7 +27,7 @@ func TestFeelAppliesDeltas(t *testing.T) {
 
 func TestFeelInvalidJSON(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Feel(env, `{not json`); err == nil {
@@ -37,7 +37,7 @@ func TestFeelInvalidJSON(t *testing.T) {
 
 func TestFeelUnknownAxis(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Feel(env, `{"glee":0.5}`); err == nil {
@@ -49,7 +49,7 @@ func TestTickDecaysOverTime(t *testing.T) {
 	env, _ := testEnv(t)
 	base := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
 	env.Now = func() time.Time { return base }
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Feel(env, `{"joy":0.8}`); err != nil {
@@ -71,7 +71,7 @@ func TestTickDecaysOverTime(t *testing.T) {
 
 func TestResetReturnsToBaseline(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	if err := Feel(env, `{"anger":0.7}`); err != nil {
@@ -91,7 +91,7 @@ func TestResetReturnsToBaseline(t *testing.T) {
 
 func TestFeelWritesFragmentFile(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := Init(env, false); err != nil {
+	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	// point fragment_file at a temp path by rewriting the config
