@@ -63,6 +63,12 @@ func (c Config) Validate() error {
 	if len(c.Axes) == 0 {
 		return fmt.Errorf("config: no axes defined")
 	}
+	if c.Clamp.Min >= c.Clamp.Max {
+		return fmt.Errorf("config: clamp min must be less than max")
+	}
+	if c.DeltaClamp.Min >= c.DeltaClamp.Max {
+		return fmt.Errorf("config: delta_clamp min must be less than max")
+	}
 	seen := map[string]bool{}
 	for _, ax := range c.Axes {
 		if seen[ax.Name] {
@@ -72,17 +78,21 @@ func (c Config) Validate() error {
 		if ax.HalflifeMinutes <= 0 {
 			return fmt.Errorf("config: axis %q has non-positive halflife_minutes", ax.Name)
 		}
+		lo, hi := c.Clamp.Min, c.Clamp.Max
+		if ax.Range != nil {
+			if ax.Range.Min >= ax.Range.Max {
+				return fmt.Errorf("config: axis %q range min must be less than max", ax.Name)
+			}
+			lo, hi = ax.Range.Min, ax.Range.Max
+		}
+		if ax.Baseline < lo || ax.Baseline > hi {
+			return fmt.Errorf("config: axis %q baseline %v outside range [%v, %v]", ax.Name, ax.Baseline, lo, hi)
+		}
 	}
 	for _, ax := range c.Axes {
 		if ax.Opposite != "" && !seen[ax.Opposite] {
 			return fmt.Errorf("config: axis %q opposite %q is not a defined axis", ax.Name, ax.Opposite)
 		}
-	}
-	if c.Clamp.Min >= c.Clamp.Max {
-		return fmt.Errorf("config: clamp min must be less than max")
-	}
-	if c.DeltaClamp.Min >= c.DeltaClamp.Max {
-		return fmt.Errorf("config: delta_clamp min must be less than max")
 	}
 	return nil
 }

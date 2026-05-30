@@ -41,6 +41,33 @@ render:
 	}
 }
 
+func TestValidateRangeAndBaseline(t *testing.T) {
+	good := Config{
+		Version:    1,
+		Clamp:      Range{Min: -1.0, Max: 1.0},
+		DeltaClamp: Range{Min: -1.0, Max: 1.0},
+		Axes: []AxisConfig{
+			{Name: "valence", Baseline: 0.0, HalflifeMinutes: 90, Range: &Range{Min: -1.0, Max: 1.0}},
+			{Name: "arousal", Baseline: 0.3, HalflifeMinutes: 90, Range: &Range{Min: 0.0, Max: 1.0}},
+		},
+	}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("valid range config rejected: %v", err)
+	}
+
+	badRange := good
+	badRange.Axes = []AxisConfig{{Name: "x", Baseline: 0.0, HalflifeMinutes: 90, Range: &Range{Min: 1.0, Max: 1.0}}}
+	if err := badRange.Validate(); err == nil || !strings.Contains(err.Error(), "range min") {
+		t.Fatalf("want range min error, got %v", err)
+	}
+
+	badBaseline := good
+	badBaseline.Axes = []AxisConfig{{Name: "arousal", Baseline: -0.2, HalflifeMinutes: 90, Range: &Range{Min: 0.0, Max: 1.0}}}
+	if err := badBaseline.Validate(); err == nil || !strings.Contains(err.Error(), "baseline") {
+		t.Fatalf("want baseline-out-of-range error, got %v", err)
+	}
+}
+
 func TestValidateErrors(t *testing.T) {
 	cases := []struct {
 		name    string
