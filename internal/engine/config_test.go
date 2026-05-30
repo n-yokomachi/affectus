@@ -68,6 +68,25 @@ func TestValidateRangeAndBaseline(t *testing.T) {
 	}
 }
 
+func TestParseConfigModel(t *testing.T) {
+	withModel := "model: russell\n" + minimalConfig
+	cfg, err := ParseConfig([]byte(withModel))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Model != "russell" {
+		t.Errorf("Model = %q, want russell", cfg.Model)
+	}
+
+	base, err := ParseConfig([]byte(minimalConfig))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if base.Model != "" {
+		t.Errorf("Model = %q, want empty for config without model field", base.Model)
+	}
+}
+
 func TestValidateErrors(t *testing.T) {
 	cases := []struct {
 		name    string
