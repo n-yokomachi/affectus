@@ -14,10 +14,11 @@ import (
 
 // axisValue is one axis in the /state response.
 type axisValue struct {
-	Name            string  `json:"name"`
-	Value           float64 `json:"value"`
-	Baseline        float64 `json:"baseline"`
-	HalflifeMinutes float64 `json:"halflife_minutes"`
+	Name            string     `json:"name"`
+	Value           float64    `json:"value"`
+	Baseline        float64    `json:"baseline"`
+	HalflifeMinutes float64    `json:"halflife_minutes"`
+	Range           clampRange `json:"range"`
 }
 
 // clampRange is the value range in the /state response.
@@ -29,6 +30,7 @@ type clampRange struct {
 // stateResponse is the JSON body of GET /state.
 type stateResponse struct {
 	UpdatedAt time.Time   `json:"updated_at"`
+	Model     string      `json:"model"`
 	Clamp     clampRange  `json:"clamp"`
 	Axes      []axisValue `json:"axes"`
 }
@@ -51,15 +53,21 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 	s = engine.Decay(s, cfg, now)
 	resp := stateResponse{
 		UpdatedAt: s.UpdatedAt,
+		Model:     cfg.Model,
 		Clamp:     clampRange{Min: cfg.Clamp.Min, Max: cfg.Clamp.Max},
 		Axes:      make([]axisValue, 0, len(cfg.Axes)),
 	}
 	for _, ax := range cfg.Axes {
+		r := clampRange{Min: cfg.Clamp.Min, Max: cfg.Clamp.Max}
+		if ax.Range != nil {
+			r = clampRange{Min: ax.Range.Min, Max: ax.Range.Max}
+		}
 		resp.Axes = append(resp.Axes, axisValue{
 			Name:            ax.Name,
 			Value:           s.Axes[ax.Name],
 			Baseline:        ax.Baseline,
 			HalflifeMinutes: ax.HalflifeMinutes,
+			Range:           r,
 		})
 	}
 	return json.MarshalIndent(resp, "", "  ")

@@ -114,3 +114,31 @@ func TestMuxServes404(t *testing.T) {
 		t.Errorf("GET /nonexistent = %d, want 404", rec.Code)
 	}
 }
+
+func TestStateJSONIncludesModelAndPerAxisRange(t *testing.T) {
+	cfg, err := engine.ParseConfig(engine.Models["russell"])
+	if err != nil {
+		t.Fatalf("russell config: %v", err)
+	}
+	b, err := stateJSON(cfg, filepath.Join(t.TempDir(), "missing.json"), time.Now())
+	if err != nil {
+		t.Fatalf("stateJSON: %v", err)
+	}
+	var resp stateResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Model != "russell" {
+		t.Errorf("model = %q, want russell", resp.Model)
+	}
+	byName := map[string]axisValue{}
+	for _, ax := range resp.Axes {
+		byName[ax.Name] = ax
+	}
+	if byName["valence"].Range.Min != -1.0 || byName["valence"].Range.Max != 1.0 {
+		t.Errorf("valence range = %+v, want {-1,1}", byName["valence"].Range)
+	}
+	if byName["arousal"].Range.Min != 0.0 || byName["arousal"].Range.Max != 1.0 {
+		t.Errorf("arousal range = %+v, want {0,1}", byName["arousal"].Range)
+	}
+}
