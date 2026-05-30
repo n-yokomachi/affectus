@@ -38,3 +38,44 @@ func TestDefaultConfigAxisOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestModelsRegistry(t *testing.T) {
+	for _, name := range []string{"plutchik", "russell"} {
+		yaml, ok := Models[name]
+		if !ok {
+			t.Fatalf("Models[%q] missing", name)
+		}
+		if len(yaml) == 0 {
+			t.Fatalf("Models[%q] is empty; embed failed", name)
+		}
+		cfg, err := ParseConfig(yaml)
+		if err != nil {
+			t.Fatalf("Models[%q] invalid config: %v", name, err)
+		}
+		if cfg.Model != name {
+			t.Errorf("Models[%q] declares model %q", name, cfg.Model)
+		}
+	}
+}
+
+func TestRussellConfigShape(t *testing.T) {
+	cfg, err := ParseConfig(Models["russell"])
+	if err != nil {
+		t.Fatalf("russell config: %v", err)
+	}
+	if len(cfg.Axes) != 2 {
+		t.Fatalf("russell axes = %d, want 2", len(cfg.Axes))
+	}
+	want := []string{"valence", "arousal"}
+	for i, name := range want {
+		if cfg.Axes[i].Name != name {
+			t.Errorf("axis %d = %q, want %q", i, cfg.Axes[i].Name, name)
+		}
+		if cfg.Axes[i].Range == nil {
+			t.Errorf("axis %q should have an explicit range", name)
+		}
+	}
+	if !almostEqual(cfg.Axes[1].Baseline, 0.3) {
+		t.Errorf("arousal baseline = %v, want 0.3", cfg.Axes[1].Baseline)
+	}
+}

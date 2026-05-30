@@ -1,0 +1,10 @@
+version: 1
+model: russell
+clamp:       { min: -1.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min:  0.0, max: 1.0 } }
+
+fragment_file: ""
