@@ -19,6 +19,10 @@ type feelInput struct {
 
 const serverVersion = "0.3.0"
 
+const showDesc = "Returns the current emotion as a JSON object of axes with float values. Interpret the values relationally per the emotion-model structure documented in your system prompt."
+
+const feelDesc = "Apply self-reported emotion deltas and return the updated emotion as a JSON object of axes with float values. Interpret the values relationally per the emotion-model structure documented in your system prompt."
+
 // handleShow computes the current emotion without persisting.
 func handleShow(env cli.Env) (showResult, error) {
 	_, axes, err := cli.ComputeShow(env)
@@ -44,7 +48,7 @@ func Serve(ctx context.Context, env cli.Env) error {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "emotion_show",
-		Description: "Returns the current emotion as a JSON object of axes with float values 0.0–1.0. Interpret the values relationally per the Plutchik wheel structure documented in your system prompt.",
+		Description: showDesc,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, showResult, error) {
 		res, err := handleShow(env)
 		return nil, res, err
@@ -52,7 +56,7 @@ func Serve(ctx context.Context, env cli.Env) error {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "emotion_feel",
-		Description: "Apply self-reported emotion deltas and return the updated emotion as a JSON object of axes with float values 0.0–1.0. Interpret the values relationally per the Plutchik wheel structure documented in your system prompt.",
+		Description: feelDesc,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in feelInput) (*mcp.CallToolResult, showResult, error) {
 		res, err := handleFeel(env, in)
 		return nil, res, err

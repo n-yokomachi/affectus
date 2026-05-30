@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,5 +72,13 @@ func TestHandleFeelUnknownAxisErrors(t *testing.T) {
 	}
 	if _, err := handleFeel(env, feelInput{Deltas: map[string]float64{"glee": 0.5}}); err == nil {
 		t.Fatal("unknown axis should error")
+	}
+}
+
+func TestToolDescriptionsAreModelNeutral(t *testing.T) {
+	for _, d := range []string{showDesc, feelDesc} {
+		if strings.Contains(d, "Plutchik") {
+			t.Errorf("tool description should not hardcode a model name: %q", d)
+		}
 	}
 }
