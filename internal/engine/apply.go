@@ -12,6 +12,15 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
+// axisClamp returns the effective value range for one axis: its own Range
+// override when set, otherwise the global Clamp.
+func axisClamp(ax AxisConfig, cfg Config) Range {
+	if ax.Range != nil {
+		return *ax.Range
+	}
+	return cfg.Clamp
+}
+
 // ApplyDeltas adds self-reported deltas to the state. Each delta is clamped to
 // the configured delta range, and each resulting axis value to the axis range.
 // An unknown axis name in deltas is an error.
@@ -28,7 +37,8 @@ func ApplyDeltas(s State, deltas map[string]float64, cfg Config) (State, error) 
 	axes := make(map[string]float64, len(cfg.Axes))
 	for _, ax := range cfg.Axes {
 		d := clamp(deltas[ax.Name], cfg.DeltaClamp.Min, cfg.DeltaClamp.Max)
-		axes[ax.Name] = clamp(s.Axes[ax.Name]+d, cfg.Clamp.Min, cfg.Clamp.Max)
+		r := axisClamp(ax, cfg)
+		axes[ax.Name] = clamp(s.Axes[ax.Name]+d, r.Min, r.Max)
 	}
 	return State{Version: s.Version, UpdatedAt: s.UpdatedAt, Axes: axes}, nil
 }

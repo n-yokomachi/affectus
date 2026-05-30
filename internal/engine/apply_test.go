@@ -61,3 +61,36 @@ func TestApplyDeltasUnknownAxis(t *testing.T) {
 		t.Fatalf("want unknown axis error, got %v", err)
 	}
 }
+
+func buildRangeCfg() Config {
+	v := Range{Min: -1.0, Max: 1.0}
+	a := Range{Min: 0.0, Max: 1.0}
+	return Config{
+		Version:    1,
+		Clamp:      Range{Min: -1.0, Max: 1.0},
+		DeltaClamp: Range{Min: -1.0, Max: 1.0},
+		Axes: []AxisConfig{
+			{Name: "valence", Baseline: 0.0, HalflifeMinutes: 90, Range: &v},
+			{Name: "arousal", Baseline: 0.3, HalflifeMinutes: 90, Range: &a},
+		},
+	}
+}
+
+func TestApplyDeltasPerAxisRange(t *testing.T) {
+	cfg := buildRangeCfg()
+	s := NewState(cfg, time.Now())
+	s.Axes["valence"] = -0.8
+	s.Axes["arousal"] = 0.1
+	// valence -0.8 + -0.5 = -1.3 -> clamp to -1.0 (range allows negative)
+	// arousal 0.1 + -0.5 = -0.4 -> clamp to 0.0 (range floor is 0)
+	out, err := ApplyDeltas(s, map[string]float64{"valence": -0.5, "arousal": -0.5}, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !almostEqual(out.Axes["valence"], -1.0) {
+		t.Errorf("valence = %v, want clamped to -1.0", out.Axes["valence"])
+	}
+	if !almostEqual(out.Axes["arousal"], 0.0) {
+		t.Errorf("arousal = %v, want clamped to 0.0", out.Axes["arousal"])
+	}
+}

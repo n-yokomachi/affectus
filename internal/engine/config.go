@@ -22,6 +22,10 @@ type AxisConfig struct {
 	// for future use: validated for referential integrity but not yet consumed
 	// by decay, apply, or render logic.
 	Opposite string `yaml:"opposite"`
+	// Range optionally overrides the global Clamp for this axis. nil means the
+	// axis uses Config.Clamp. Used by models with asymmetric axis domains
+	// (e.g. Russell: valence -1..1, arousal 0..1).
+	Range *Range `yaml:"range"`
 }
 
 // Config is the full library configuration.
