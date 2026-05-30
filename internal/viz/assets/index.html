@@ -17,20 +17,30 @@
   .bar-value { width:48px; text-align:right; padding-left:10px; font-variant-numeric:tabular-nums; color:#ddd; }
   .bar-eta { padding-left:12px; font-size:12px; color:#888; font-variant-numeric:tabular-nums; }
   .updated { color:#666; font-size:12px; margin-top:20px; }
+  .val-row { display:flex; align-items:baseline; gap:10px; margin:10px 0; }
+  .val-name { width:80px; color:#888; font-size:13px; }
+  .val-num { font-size:26px; font-variant-numeric:tabular-nums; color:#ddd; }
+  .hidden { display:none; }
 </style>
 </head>
 <body>
   <h1>affectus &mdash; emotion state</h1>
   <div class="panels">
-    <div class="panel">
-      <div class="panel-title">8-axis wheel</div>
+    <div class="panel" id="wheel-panel">
+      <div class="panel-title" id="wheel-title">wheel</div>
       <div class="panel-sub">petal length = current value per axis</div>
       <svg id="wheel" width="320" height="320" viewBox="0 0 320 320"></svg>
     </div>
+    <div class="panel" id="scatter-panel">
+      <div class="panel-title">valence &times; arousal (Russell circumplex)</div>
+      <div class="panel-sub">dot = current core affect; faded trail = recent trajectory (session only)</div>
+      <svg id="scatter" width="340" height="340" viewBox="0 0 340 340"></svg>
+    </div>
     <div class="panel">
-      <div class="panel-title">current values / time decay</div>
-      <div class="panel-sub">values decay exponentially toward baseline (halved every halflife). ETA = est. time until |value − baseline| ≤ 0.01.</div>
+      <div class="panel-title" id="side-title">current values / time decay</div>
+      <div class="panel-sub" id="side-sub">values decay exponentially toward baseline.</div>
       <div id="bars"></div>
+      <div id="values" class="hidden"></div>
     </div>
   </div>
   <div class="updated" id="updated"></div>
@@ -39,30 +49,23 @@ const POLL_MS = 1000, CX = 160, CY = 160, R = 130;
 const SVGNS = "http://www.w3.org/2000/svg";
 
 function hue(i, n) { return Math.round(360 * i / n); }
+function el(name, attrs) {
+  const e = document.createElementNS(SVGNS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
 
+/* ---------- Plutchik (wheel + bars) ---------- */
 function renderWheel(axes, clamp) {
   const svg = document.getElementById("wheel");
   svg.innerHTML = "";
   const n = axes.length;
   const span = (clamp.max - clamp.min) || 1;
-
-  const ring = document.createElementNS(SVGNS, "circle");
-  ring.setAttribute("cx", CX); ring.setAttribute("cy", CY); ring.setAttribute("r", R);
-  ring.setAttribute("fill", "none");
-  ring.setAttribute("stroke", "#333");
-  ring.setAttribute("stroke-width", "1");
-  svg.appendChild(ring);
+  svg.appendChild(el("circle", {cx:CX, cy:CY, r:R, fill:"none", stroke:"#333", "stroke-width":1}));
   for (let i = 0; i < n; i++) {
     const a = 2*Math.PI*i/n - Math.PI/2;
-    const line = document.createElementNS(SVGNS, "line");
-    line.setAttribute("x1", CX); line.setAttribute("y1", CY);
-    line.setAttribute("x2", CX + R*Math.cos(a));
-    line.setAttribute("y2", CY + R*Math.sin(a));
-    line.setAttribute("stroke", "#333");
-    line.setAttribute("stroke-width", "1");
-    svg.appendChild(line);
+    svg.appendChild(el("line", {x1:CX, y1:CY, x2:CX+R*Math.cos(a), y2:CY+R*Math.sin(a), stroke:"#333", "stroke-width":1}));
   }
-
   axes.forEach((ax, i) => {
     const a0 = 2*Math.PI*i/n - Math.PI/2;
     const a1 = 2*Math.PI*(i+1)/n - Math.PI/2;
@@ -71,29 +74,19 @@ function renderWheel(axes, clamp) {
     if (r > 0.5) {
       const x0 = CX + r*Math.cos(a0), y0 = CY + r*Math.sin(a0);
       const x1 = CX + r*Math.cos(a1), y1 = CY + r*Math.sin(a1);
-      const path = document.createElementNS(SVGNS, "path");
-      path.setAttribute("d", `M${CX},${CY} L${x0},${y0} A${r},${r} 0 0,1 ${x1},${y1} Z`);
-      path.setAttribute("fill", `hsl(${hue(i,n)},70%,55%)`);
-      path.setAttribute("fill-opacity", "0.85");
-      path.setAttribute("stroke", "#1a1a1a");
-      path.setAttribute("stroke-width", "1.5");
+      const path = el("path", {d:`M${CX},${CY} L${x0},${y0} A${r},${r} 0 0,1 ${x1},${y1} Z`,
+        fill:`hsl(${hue(i,n)},70%,55%)`, "fill-opacity":0.85, stroke:"#1a1a1a", "stroke-width":1.5});
       svg.appendChild(path);
     }
     const am = (a0 + a1) / 2;
-    const t = document.createElementNS(SVGNS, "text");
-    t.setAttribute("x", CX + (R+14)*Math.cos(am));
-    t.setAttribute("y", CY + (R+14)*Math.sin(am));
-    t.setAttribute("font-size", "11");
-    t.setAttribute("fill", "#aaa");
-    t.setAttribute("text-anchor", "middle");
-    t.setAttribute("dominant-baseline", "middle");
+    const t = el("text", {x:CX+(R+14)*Math.cos(am), y:CY+(R+14)*Math.sin(am),
+      "font-size":11, fill:"#aaa", "text-anchor":"middle", "dominant-baseline":"middle"});
     t.textContent = ax.name;
     svg.appendChild(t);
   });
 }
 
 const ETA_EPS = 0.01;
-
 function formatEta(ax) {
   const hl = ax.halflife_minutes;
   const baseline = ax.baseline || 0;
@@ -137,12 +130,116 @@ function renderBars(axes, clamp) {
   });
 }
 
+/* ---------- Russell (scatter + values) ---------- */
+const TRAIL_MAX = 60;
+const trail = [];
+// Circumplex word anchors in (valence, arousal) value space.
+const WORDS = [
+  {t:"alert",   v:0.0,  a:1.0},
+  {t:"excited", v:0.6,  a:0.92},
+  {t:"happy",   v:1.0,  a:0.6},
+  {t:"content", v:0.7,  a:0.12},
+  {t:"calm",    v:0.0,  a:0.0},
+  {t:"sad",     v:-0.7, a:0.12},
+  {t:"upset",   v:-1.0, a:0.55},
+  {t:"tense",   v:-0.6, a:0.92},
+];
+
+function axisByName(axes, name) { return axes.find(a => a.name === name); }
+
+function renderScatter(axes) {
+  const V = axisByName(axes, "valence");
+  const A = axisByName(axes, "arousal");
+  const svg = document.getElementById("scatter");
+  svg.innerHTML = "";
+  if (!V || !A) return;
+  const W = 340, H = 340, pad = 34;
+  const vr = V.range, ar = A.range;
+  const vspan = (vr.max - vr.min) || 1, aspan = (ar.max - ar.min) || 1;
+  const x = v => pad + (v - vr.min) / vspan * (W - 2*pad);
+  const y = a => (H - pad) - (a - ar.min) / aspan * (H - 2*pad);
+
+  svg.appendChild(el("rect", {x:pad, y:pad, width:W-2*pad, height:H-2*pad, fill:"#202020", stroke:"#333"}));
+  // valence=0 vertical, mid-arousal horizontal guides
+  svg.appendChild(el("line", {x1:x(0), y1:pad, x2:x(0), y2:H-pad, stroke:"#3a3a3a", "stroke-dasharray":"3 3"}));
+  const midA = (ar.min + ar.max) / 2;
+  svg.appendChild(el("line", {x1:pad, y1:y(midA), x2:W-pad, y2:y(midA), stroke:"#3a3a3a", "stroke-dasharray":"3 3"}));
+
+  // axis end labels
+  const axLabel = (tx, ty, txt) => {
+    const t = el("text", {x:tx, y:ty, "font-size":10, fill:"#777", "text-anchor":"middle"});
+    t.textContent = txt; svg.appendChild(t);
+  };
+  axLabel(x(vr.max)-8, y(midA)-5, "+V");
+  axLabel(x(vr.min)+8, y(midA)-5, "−V");
+  axLabel(x(0)+12, pad+10, "↑A");
+
+  // circumplex words
+  WORDS.forEach(w => {
+    const t = el("text", {x:x(w.v), y:y(w.a), "font-size":11, fill:"#9a8", "text-anchor":"middle", "dominant-baseline":"middle", "fill-opacity":0.7});
+    t.textContent = w.t; svg.appendChild(t);
+  });
+
+  // trail (oldest faint -> newest bright)
+  for (let i = 0; i < trail.length; i++) {
+    const p = trail[i];
+    const op = 0.08 + 0.5 * (i / Math.max(1, trail.length - 1));
+    svg.appendChild(el("circle", {cx:x(p.v), cy:y(p.a), r:3, fill:"#58a6ff", "fill-opacity":op}));
+    if (i > 0) {
+      const q = trail[i-1];
+      svg.appendChild(el("line", {x1:x(q.v), y1:y(q.a), x2:x(p.v), y2:y(p.a), stroke:"#58a6ff", "stroke-opacity":op*0.6}));
+    }
+  }
+  // current point
+  svg.appendChild(el("circle", {cx:x(V.value), cy:y(A.value), r:7, fill:"#58a6ff", stroke:"#1a1a1a", "stroke-width":2}));
+}
+
+function renderValues(axes) {
+  const box = document.getElementById("values");
+  box.innerHTML = "";
+  ["valence", "arousal"].forEach(name => {
+    const ax = axisByName(axes, name);
+    if (!ax) return;
+    const row = document.createElement("div"); row.className = "val-row";
+    const nm = document.createElement("div"); nm.className = "val-name"; nm.textContent = name;
+    const num = document.createElement("div"); num.className = "val-num";
+    num.textContent = (ax.value >= 0 ? "+" : "") + ax.value.toFixed(2);
+    row.appendChild(nm); row.appendChild(num);
+    box.appendChild(row);
+  });
+}
+
+/* ---------- dispatch ---------- */
+function show(id, on) { document.getElementById(id).classList.toggle("hidden", !on); }
+
+function render(data) {
+  const isRussell = data.model === "russell";
+  show("wheel-panel", !isRussell);
+  show("scatter-panel", isRussell);
+  show("bars", !isRussell);
+  show("values", isRussell);
+  if (isRussell) {
+    trail.push({v: (axisByName(data.axes,"valence")||{}).value || 0,
+                a: (axisByName(data.axes,"arousal")||{}).value || 0});
+    if (trail.length > TRAIL_MAX) trail.shift();
+    document.getElementById("side-title").textContent = "core affect values";
+    document.getElementById("side-sub").textContent = "valence ∈ [−1,+1], arousal ∈ [0,+1]";
+    renderScatter(data.axes);
+    renderValues(data.axes);
+  } else {
+    document.getElementById("wheel-title").textContent = `${data.axes.length}-axis wheel`;
+    document.getElementById("side-title").textContent = "current values / time decay";
+    document.getElementById("side-sub").textContent = "values decay exponentially toward baseline (halved every halflife). ETA = est. time until |value − baseline| ≤ 0.01.";
+    renderWheel(data.axes, data.clamp);
+    renderBars(data.axes, data.clamp);
+  }
+}
+
 async function poll() {
   try {
     const res = await fetch("/state");
     const data = await res.json();
-    renderWheel(data.axes, data.clamp);
-    renderBars(data.axes, data.clamp);
+    render(data);
     document.getElementById("updated").textContent = "updated_at: " + data.updated_at;
   } catch (e) {
     document.getElementById("updated").textContent = "error: " + e;
