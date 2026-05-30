@@ -14,8 +14,10 @@ import (
 
 // axisValue is one axis in the /state response.
 type axisValue struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
+	Name            string  `json:"name"`
+	Value           float64 `json:"value"`
+	Baseline        float64 `json:"baseline"`
+	HalflifeMinutes float64 `json:"halflife_minutes"`
 }
 
 // clampRange is the value range in the /state response.
@@ -53,7 +55,12 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 		Axes:      make([]axisValue, 0, len(cfg.Axes)),
 	}
 	for _, ax := range cfg.Axes {
-		resp.Axes = append(resp.Axes, axisValue{Name: ax.Name, Value: s.Axes[ax.Name]})
+		resp.Axes = append(resp.Axes, axisValue{
+			Name:            ax.Name,
+			Value:           s.Axes[ax.Name],
+			Baseline:        ax.Baseline,
+			HalflifeMinutes: ax.HalflifeMinutes,
+		})
 	}
 	return json.MarshalIndent(resp, "", "  ")
 }

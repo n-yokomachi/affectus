@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>affectus viz</title>
@@ -7,18 +7,31 @@
   body { font-family: sans-serif; background:#1a1a1a; color:#eee; margin:0; padding:24px; }
   h1 { font-size:15px; font-weight:normal; color:#888; margin:0 0 16px; }
   .panels { display:flex; gap:48px; flex-wrap:wrap; align-items:flex-start; }
-  .bar-row { display:flex; align-items:center; margin:7px 0; }
-  .bar-label { width:104px; font-size:13px; text-align:right; padding-right:10px; }
-  .bar-track { width:240px; height:16px; background:#333; border-radius:3px; }
+  .panel { display:flex; flex-direction:column; }
+  .panel-title { font-size:12px; color:#888; margin:0 0 4px; }
+  .panel-sub { font-size:11px; color:#666; margin:0 0 10px; }
+  .bar-row { display:flex; align-items:center; margin:7px 0; font-size:13px; }
+  .bar-label { width:104px; text-align:right; padding-right:10px; }
+  .bar-track { width:200px; height:16px; background:#333; border-radius:3px; }
   .bar-fill { height:100%; border-radius:3px; transition:width .35s linear; }
+  .bar-value { width:48px; text-align:right; padding-left:10px; font-variant-numeric:tabular-nums; color:#ddd; }
+  .bar-eta { padding-left:12px; font-size:12px; color:#888; font-variant-numeric:tabular-nums; }
   .updated { color:#666; font-size:12px; margin-top:20px; }
 </style>
 </head>
 <body>
   <h1>affectus &mdash; emotion state</h1>
   <div class="panels">
-    <svg id="wheel" width="320" height="320" viewBox="0 0 320 320"></svg>
-    <div id="bars"></div>
+    <div class="panel">
+      <div class="panel-title">8-axis wheel</div>
+      <div class="panel-sub">petal length = current value per axis</div>
+      <svg id="wheel" width="320" height="320" viewBox="0 0 320 320"></svg>
+    </div>
+    <div class="panel">
+      <div class="panel-title">current values / time decay</div>
+      <div class="panel-sub">values decay exponentially toward baseline (halved every halflife). ETA = est. time until |value − baseline| ≤ 0.01.</div>
+      <div id="bars"></div>
+    </div>
   </div>
   <div class="updated" id="updated"></div>
 <script>
@@ -27,22 +40,45 @@ const SVGNS = "http://www.w3.org/2000/svg";
 
 function hue(i, n) { return Math.round(360 * i / n); }
 
-function renderWheel(axes) {
+function renderWheel(axes, clamp) {
   const svg = document.getElementById("wheel");
   svg.innerHTML = "";
   const n = axes.length;
+  const span = (clamp.max - clamp.min) || 1;
+
+  const ring = document.createElementNS(SVGNS, "circle");
+  ring.setAttribute("cx", CX); ring.setAttribute("cy", CY); ring.setAttribute("r", R);
+  ring.setAttribute("fill", "none");
+  ring.setAttribute("stroke", "#333");
+  ring.setAttribute("stroke-width", "1");
+  svg.appendChild(ring);
+  for (let i = 0; i < n; i++) {
+    const a = 2*Math.PI*i/n - Math.PI/2;
+    const line = document.createElementNS(SVGNS, "line");
+    line.setAttribute("x1", CX); line.setAttribute("y1", CY);
+    line.setAttribute("x2", CX + R*Math.cos(a));
+    line.setAttribute("y2", CY + R*Math.sin(a));
+    line.setAttribute("stroke", "#333");
+    line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+  }
+
   axes.forEach((ax, i) => {
     const a0 = 2*Math.PI*i/n - Math.PI/2;
     const a1 = 2*Math.PI*(i+1)/n - Math.PI/2;
-    const x0 = CX + R*Math.cos(a0), y0 = CY + R*Math.sin(a0);
-    const x1 = CX + R*Math.cos(a1), y1 = CY + R*Math.sin(a1);
-    const path = document.createElementNS(SVGNS, "path");
-    path.setAttribute("d", `M${CX},${CY} L${x0},${y0} A${R},${R} 0 0,1 ${x1},${y1} Z`);
-    path.setAttribute("fill", `hsl(${hue(i,n)},70%,55%)`);
-    path.setAttribute("fill-opacity", (0.08 + 0.92*ax.value).toFixed(3));
-    path.setAttribute("stroke", "#1a1a1a");
-    path.setAttribute("stroke-width", "2");
-    svg.appendChild(path);
+    const norm = Math.max(0, Math.min(1, (ax.value - clamp.min) / span));
+    const r = R * norm;
+    if (r > 0.5) {
+      const x0 = CX + r*Math.cos(a0), y0 = CY + r*Math.sin(a0);
+      const x1 = CX + r*Math.cos(a1), y1 = CY + r*Math.sin(a1);
+      const path = document.createElementNS(SVGNS, "path");
+      path.setAttribute("d", `M${CX},${CY} L${x0},${y0} A${r},${r} 0 0,1 ${x1},${y1} Z`);
+      path.setAttribute("fill", `hsl(${hue(i,n)},70%,55%)`);
+      path.setAttribute("fill-opacity", "0.85");
+      path.setAttribute("stroke", "#1a1a1a");
+      path.setAttribute("stroke-width", "1.5");
+      svg.appendChild(path);
+    }
     const am = (a0 + a1) / 2;
     const t = document.createElementNS(SVGNS, "text");
     t.setAttribute("x", CX + (R+14)*Math.cos(am));
@@ -54,6 +90,27 @@ function renderWheel(axes) {
     t.textContent = ax.name;
     svg.appendChild(t);
   });
+}
+
+const ETA_EPS = 0.01;
+
+function formatEta(ax) {
+  const hl = ax.halflife_minutes;
+  const baseline = ax.baseline || 0;
+  if (!hl || hl <= 0) return "—";
+  const diff = Math.abs(ax.value - baseline);
+  if (diff <= ETA_EPS) return "—";
+  const mins = hl * Math.log2(diff / ETA_EPS);
+  if (!isFinite(mins) || mins <= 0) return "—";
+  if (mins < 60) return `${Math.round(mins)}m`;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins - h*60);
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    const rh = h - d*24;
+    return rh > 0 ? `${d}d${rh}h` : `${d}d`;
+  }
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
 function renderBars(axes, clamp) {
@@ -71,7 +128,11 @@ function renderBars(axes, clamp) {
     fill.style.width = (pct*100).toFixed(1) + "%";
     fill.style.background = `hsl(${hue(i,n)},70%,55%)`;
     track.appendChild(fill);
-    row.appendChild(label); row.appendChild(track);
+    const val = document.createElement("div"); val.className = "bar-value";
+    val.textContent = ax.value.toFixed(2);
+    const eta = document.createElement("div"); eta.className = "bar-eta";
+    eta.textContent = formatEta(ax);
+    row.appendChild(label); row.appendChild(track); row.appendChild(val); row.appendChild(eta);
     box.appendChild(row);
   });
 }
@@ -80,7 +141,7 @@ async function poll() {
   try {
     const res = await fetch("/state");
     const data = await res.json();
-    renderWheel(data.axes);
+    renderWheel(data.axes, data.clamp);
     renderBars(data.axes, data.clamp);
     document.getElementById("updated").textContent = "updated_at: " + data.updated_at;
   } catch (e) {
