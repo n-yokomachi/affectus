@@ -304,6 +304,14 @@ func TestApplyAppraisalFortunesOfOthers(t *testing.T) {
 			if s.Axes["joy"] != 0 || s.Axes["distress"] != 0 {
 				t.Errorf("for-other consequence must not raise joy/distress: %+v", s.Axes)
 			}
+			for _, axis := range []string{"happy-for", "pity", "resentment", "gloating"} {
+				if axis == tt.axis {
+					continue
+				}
+				if s.Axes[axis] != 0 {
+					t.Errorf("axis %s should be zero, got %v", axis, s.Axes[axis])
+				}
+			}
 		})
 	}
 }
