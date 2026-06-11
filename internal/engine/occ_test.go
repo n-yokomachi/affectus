@@ -149,6 +149,12 @@ func TestApplyAppraisalNegativeProspectRaisesFear(t *testing.T) {
 	if !almostEqual(s.Axes["fear"], 0.24) {
 		t.Errorf("fear = %v, want 0.24", s.Axes["fear"])
 	}
+	if s.Axes["hope"] != 0 {
+		t.Errorf("hope = %v, want 0 for negative prospect", s.Axes["hope"])
+	}
+	if len(s.Prospects) != 1 || s.Prospects[0].ID != "p1" {
+		t.Errorf("ledger entry missing or wrong: %+v", s.Prospects)
+	}
 }
 
 func TestApplyAppraisalLikelihoodOneIsWellbeing(t *testing.T) {

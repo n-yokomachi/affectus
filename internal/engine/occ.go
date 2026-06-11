@@ -156,8 +156,9 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 		case c.For == "other":
 			// fortunes-of-others: rule added in a later task; no emotion yet.
 		case c.Likelihood != nil && *c.Likelihood < 1:
-			// prospect: uncertain consequence for self — hope/fear now,
-			// ledger entry so a later session can resolve it.
+			// prospect: uncertain consequence for self (Validate guarantees
+			// likelihood > 0) — hope/fear now, ledger entry so a later
+			// session can resolve it.
 			l := *c.Likelihood
 			mag := g.Prospect * math.Abs(des) * l
 			if des > 0 {
