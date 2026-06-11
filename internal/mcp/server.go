@@ -45,7 +45,10 @@ func handleAppraise(env cli.Env, a engine.Appraisal) (showResult, error) {
 	return showResult{Axes: s.Axes, Prospects: s.Prospects}, nil
 }
 
-// handleFeel applies self-reported deltas and persists.
+// handleFeel applies self-reported deltas and persists. It intentionally
+// omits the prospect ledger from its result: feel is the generic delta
+// mechanism for all models; occ callers read the ledger via emotion_show
+// or emotion_appraise.
 func handleFeel(env cli.Env, in feelInput) (showResult, error) {
 	_, axes, err := cli.ApplyFeel(env, in.Deltas)
 	if err != nil {

@@ -53,6 +53,8 @@ func Show(env Env, format string) error {
 		}
 		out := map[string]any{"axes": rounded}
 		if cfg.Model == "occ" {
+			// Unlike the slim text format, json format exposes the full
+			// Prospect (incl. created_at) — it is the developer/tooling view.
 			// nil slice would encode as null; normalize to [] like the text format.
 			prospects := s.Prospects
 			if prospects == nil {
