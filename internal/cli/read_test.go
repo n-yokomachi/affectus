@@ -87,6 +87,41 @@ func TestShowUnknownFormat(t *testing.T) {
 	}
 }
 
+func TestShowJSONFormatOCCIncludesProspects(t *testing.T) {
+	env, out := testEnv(t)
+	if err := Init(env, "occ", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := Appraise(env, `{"consequence":{"desirability":0.6,"likelihood":0.5,"label":"pr merge"}}`); err != nil {
+		t.Fatalf("Appraise: %v", err)
+	}
+	out.Reset()
+	if err := Show(env, "json"); err != nil {
+		t.Fatalf("Show: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, `"prospects"`) {
+		t.Errorf("occ json output missing prospects: %s", got)
+	}
+	if !strings.Contains(got, `"p1"`) {
+		t.Errorf("occ json output missing p1: %s", got)
+	}
+}
+
+func TestShowJSONFormatPlutchikNoProspects(t *testing.T) {
+	env, out := testEnv(t)
+	if err := Init(env, "plutchik", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	out.Reset()
+	if err := Show(env, "json"); err != nil {
+		t.Fatalf("Show: %v", err)
+	}
+	if strings.Contains(out.String(), "prospects") {
+		t.Errorf("plutchik json output must not contain prospects: %s", out.String())
+	}
+}
+
 func TestGetOutputsAxesJSON(t *testing.T) {
 	env, out := testEnv(t)
 	if err := Init(env, "plutchik", false); err != nil {

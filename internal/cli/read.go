@@ -36,24 +36,28 @@ func ComputeShow(env Env) (string, map[string]float64, error) {
 
 // Show prints the current emotion as text or JSON. Read-only: does not persist.
 // text format: one-line JSON of all axes (the Render output).
-// json format: {"axes": {...}} pretty-printed.
+// json format: {"axes": {...}} pretty-printed; occ also includes "prospects".
 func Show(env Env, format string) error {
-	axesJSON, axes, err := ComputeShow(env)
+	line, s, cfg, err := ComputeShowFull(env)
 	if err != nil {
 		return err
 	}
 	switch format {
 	case "", "text":
-		fmt.Fprintln(env.Stdout, axesJSON)
+		fmt.Fprintln(env.Stdout, line)
 		return nil
 	case "json":
-		rounded := make(map[string]float64, len(axes))
-		for k, v := range axes {
+		rounded := make(map[string]float64, len(s.Axes))
+		for k, v := range s.Axes {
 			rounded[k] = math.Round(v*100) / 100
+		}
+		out := map[string]any{"axes": rounded}
+		if cfg.Model == "occ" {
+			out["prospects"] = s.Prospects
 		}
 		enc := json.NewEncoder(env.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]any{"axes": rounded})
+		return enc.Encode(out)
 	default:
 		return fmt.Errorf("unknown format %q (want text|json)", format)
 	}

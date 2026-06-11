@@ -212,6 +212,10 @@ func TestAppraiseRejectsBadJSON(t *testing.T) {
 	if err := Appraise(env, `{"consequences":{"desirability":0.5}}`); err == nil {
 		t.Fatal("unknown field should error")
 	}
+	// nested unknown field must also be rejected.
+	if err := Appraise(env, `{"consequence":{"desirabillity":0.5}}`); err == nil {
+		t.Fatal("nested unknown field should error")
+	}
 }
 
 func TestPlutchikShowLineHasNoProspects(t *testing.T) {
