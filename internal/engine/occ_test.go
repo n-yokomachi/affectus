@@ -285,6 +285,22 @@ func TestRenderOCCEmptyLedger(t *testing.T) {
 	}
 }
 
+func TestRenderOCCEscapesLabel(t *testing.T) {
+	cfg := occCfg(t)
+	s, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: 0.5, Likelihood: f64(0.5), Label: `say "hi"` + "\n"}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	out := RenderOCC(s, cfg)
+	if !strings.Contains(out, `"label":"say \"hi\"\n"`) {
+		t.Errorf("label not JSON-escaped: %s", out)
+	}
+	if strings.Contains(out, "\n") {
+		t.Errorf("output must stay one line even with newline in label: %q", out)
+	}
+}
+
 func TestApplyAppraisalResolveAndNewProspectInOneCall(t *testing.T) {
 	cfg := occCfg(t)
 	s := prospectState(t, cfg, 0.6) // p1 in ledger
