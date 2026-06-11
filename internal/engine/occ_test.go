@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -217,18 +218,20 @@ func TestApplyAppraisalResolve(t *testing.T) {
 		{-0.6, "disconfirmed", "relief", 0.48},
 	}
 	for _, tt := range tests {
-		cfg := occCfg(t)
-		s := prospectState(t, cfg, tt.des)
-		s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: tt.outcome}}}, cfg, occNow)
-		if err != nil {
-			t.Fatalf("resolve: %v", err)
-		}
-		if !almostEqual(s.Axes[tt.axis], tt.want) {
-			t.Errorf("%s(%v,%s) = %v, want %v", tt.axis, tt.des, tt.outcome, s.Axes[tt.axis], tt.want)
-		}
-		if len(s.Prospects) != 0 {
-			t.Errorf("ledger should be empty after resolve, got %+v", s.Prospects)
-		}
+		t.Run(fmt.Sprintf("%s_%s", tt.axis, tt.outcome), func(t *testing.T) {
+			cfg := occCfg(t)
+			s := prospectState(t, cfg, tt.des)
+			s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: tt.outcome}}}, cfg, occNow)
+			if err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if !almostEqual(s.Axes[tt.axis], tt.want) {
+				t.Errorf("%s(%v,%s) = %v, want %v", tt.axis, tt.des, tt.outcome, s.Axes[tt.axis], tt.want)
+			}
+			if len(s.Prospects) != 0 {
+				t.Errorf("ledger should be empty after resolve, got %+v", s.Prospects)
+			}
+		})
 	}
 }
 
@@ -254,6 +257,27 @@ func TestApplyAppraisalResolveUnknownID(t *testing.T) {
 	_, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{Resolve: []Resolution{{ID: "p9", Outcome: "confirmed"}}}, cfg, occNow)
 	if err == nil || !strings.Contains(err.Error(), "unknown prospect") {
 		t.Fatalf("want unknown prospect error, got %v", err)
+	}
+}
+
+func TestApplyAppraisalResolveAndNewProspectInOneCall(t *testing.T) {
+	cfg := occCfg(t)
+	s := prospectState(t, cfg, 0.6) // p1 in ledger
+	s, err := ApplyAppraisal(s, Appraisal{
+		Resolve:     []Resolution{{ID: "p1", Outcome: "confirmed"}},
+		Consequence: &ConsequenceAppraisal{Desirability: -0.4, Likelihood: f64(0.5), Label: "new worry"},
+	}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("ApplyAppraisal: %v", err)
+	}
+	if !almostEqual(s.Axes["satisfaction"], 0.48) {
+		t.Errorf("satisfaction = %v, want 0.48 (old prospect resolved)", s.Axes["satisfaction"])
+	}
+	if len(s.Prospects) != 1 || s.Prospects[0].ID != "p2" || s.Prospects[0].Label != "new worry" {
+		t.Errorf("new prospect should be p2 and survive the resolve loop, got %+v", s.Prospects)
+	}
+	if !almostEqual(s.Axes["fear"], 0.16) { // 0.8 * 0.4 * 0.5
+		t.Errorf("fear = %v, want 0.16 (new prospect fired)", s.Axes["fear"])
 	}
 }
 
