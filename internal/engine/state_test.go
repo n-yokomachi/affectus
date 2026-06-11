@@ -68,6 +68,66 @@ func TestLoadStateFillsMissingAxes(t *testing.T) {
 	}
 }
 
+func TestStateProspectsRoundTrip(t *testing.T) {
+	cfg, _ := DefaultConfig()
+	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	s := NewState(cfg, now)
+	s.ProspectSeq = 2
+	s.Prospects = []Prospect{
+		{ID: "p2", Label: "pr merge", Desirability: 0.6, Likelihood: 0.7, CreatedAt: now},
+	}
+	if err := SaveState(path, s); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	got, err := LoadState(path, cfg, now)
+	if err != nil {
+		t.Fatalf("LoadState: %v", err)
+	}
+	if got.ProspectSeq != 2 || len(got.Prospects) != 1 || got.Prospects[0].ID != "p2" {
+		t.Errorf("prospects not round-tripped: %+v", got)
+	}
+}
+
+func TestStateWithoutProspectsOmitsFields(t *testing.T) {
+	cfg, _ := DefaultConfig()
+	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	if err := SaveState(path, NewState(cfg, now)); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "prospect") {
+		t.Errorf("plutchik state file must not contain prospect fields: %s", data)
+	}
+}
+
+func TestDecayAndApplyPreserveProspects(t *testing.T) {
+	cfg, _ := DefaultConfig()
+	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
+	s := NewState(cfg, now)
+	s.ProspectSeq = 1
+	s.Prospects = []Prospect{{ID: "p1", Label: "x", Desirability: 0.5, Likelihood: 0.5, CreatedAt: now}}
+
+	s = Decay(s, cfg, now.Add(10*time.Minute))
+	if s.ProspectSeq != 1 || len(s.Prospects) != 1 {
+		t.Fatalf("Decay dropped prospects: %+v", s)
+	}
+	s, err := ApplyDeltas(s, map[string]float64{"joy": 0.1}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ProspectSeq != 1 || len(s.Prospects) != 1 {
+		t.Fatalf("ApplyDeltas dropped prospects: %+v", s)
+	}
+}
+
 func TestWithLockSerializesWrites(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	var mu sync.Mutex

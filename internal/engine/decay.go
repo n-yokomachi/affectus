@@ -19,5 +19,6 @@ func Decay(s State, cfg Config, now time.Time) State {
 		factor := math.Pow(0.5, elapsed/ax.HalflifeMinutes)
 		axes[ax.Name] = ax.Baseline + (v-ax.Baseline)*factor
 	}
-	return State{Version: s.Version, UpdatedAt: now, Axes: axes}
+	return State{Version: s.Version, UpdatedAt: now, Axes: axes,
+		ProspectSeq: s.ProspectSeq, Prospects: s.Prospects}
 }

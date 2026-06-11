@@ -40,5 +40,6 @@ func ApplyDeltas(s State, deltas map[string]float64, cfg Config) (State, error) 
 		r := axisClamp(ax, cfg)
 		axes[ax.Name] = clamp(s.Axes[ax.Name]+d, r.Min, r.Max)
 	}
-	return State{Version: s.Version, UpdatedAt: s.UpdatedAt, Axes: axes}, nil
+	return State{Version: s.Version, UpdatedAt: s.UpdatedAt, Axes: axes,
+		ProspectSeq: s.ProspectSeq, Prospects: s.Prospects}, nil
 }

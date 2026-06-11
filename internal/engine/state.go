@@ -10,11 +10,26 @@ import (
 	"time"
 )
 
+// Prospect is one unresolved prospect ledger entry (occ model): an uncertain
+// event the agent reported hope/fear about, kept so a later session can still
+// resolve it into satisfaction/disappointment/relief/fears-confirmed.
+type Prospect struct {
+	ID           string    `json:"id"`
+	Label        string    `json:"label"`
+	Desirability float64   `json:"desirability"`
+	Likelihood   float64   `json:"likelihood"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // State is the persisted emotion vector.
 type State struct {
 	Version   int                `json:"version"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	Axes      map[string]float64 `json:"axes"`
+	// ProspectSeq and Prospects are only used by the occ model. omitempty keeps
+	// plutchik/russell state files byte-identical to before.
+	ProspectSeq int        `json:"prospect_seq,omitempty"`
+	Prospects   []Prospect `json:"prospects,omitempty"`
 }
 
 // NewState returns a fresh state with every axis at its configured baseline.
