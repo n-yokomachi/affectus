@@ -20,6 +20,7 @@ func TestAppraisalValidate(t *testing.T) {
 		{"likelihood zero", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, Likelihood: f64(0)}}, "likelihood"},
 		{"prospect needs label", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, Likelihood: f64(0.5)}}, "label"},
 		{"prospect ok", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, Likelihood: f64(0.5), Label: "x"}}, ""},
+		{"likelihood one no label ok", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, Likelihood: f64(1.0)}}, ""},
 		{"for other needs liking", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, For: "other"}}, "liking"},
 		{"for other ok", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, For: "other", Liking: f64(0.4)}}, ""},
 		{"liking out of range", Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, For: "other", Liking: f64(2)}}, "liking"},
