@@ -91,6 +91,11 @@ anger, surprise, anticipation), each `0.0–1.0`. Axis names, count, baselines,
 and half-lives are all configurable — see the config written by `affectus init`
 and `examples/configs/plutchik-ja.yaml`.
 
+Two alternative models ship built in: `affectus init --model russell` (2-axis
+core affect) and `affectus init --model occ` (22 OCC emotions derived from
+appraisals via `affectus appraise` — see
+`examples/system-prompt-snippet-occ.md`).
+
 **v0.3 note:** affectus no longer renders emotions as natural-language text.
 It emits a one-line JSON object of all axes; the LLM is responsible for
 reading the values relationally (per the Plutchik wheel) and modulating its

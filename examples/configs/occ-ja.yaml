@@ -1,0 +1,54 @@
+# OCC（認知的評価）モデル 設定サンプル。
+# affectus init --model occ で ~/.config/affectus/config.yaml に書き出される
+# デフォルトと同じ内容。--config でこのファイルを直接指定することもできる。
+#
+# OCC では LLM は感情を直接申告しない。出来事への評価（appraise）を申告し、
+# 22感情への変換は決定論的ルール（internal/engine/occ.go）が行う。
+version: 1
+model: occ
+clamp:       { min: 0.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  # 福利（well-being）: 自分に起きた確定事象の望ましさから
+  - { name: joy,             baseline: 0.0, halflife_minutes: 90 }
+  - { name: distress,        baseline: 0.0, halflife_minutes: 90 }
+  # 見込み（prospect）: 不確実な見込みとその解決から
+  - { name: hope,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: fear,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: satisfaction,    baseline: 0.0, halflife_minutes: 90 }
+  - { name: disappointment,  baseline: 0.0, halflife_minutes: 90 }
+  - { name: relief,          baseline: 0.0, halflife_minutes: 90 }
+  - { name: fears-confirmed, baseline: 0.0, halflife_minutes: 90 }
+  # 他者の運命（fortunes-of-others）: 他者の出来事 × 好意から
+  - { name: happy-for,       baseline: 0.0, halflife_minutes: 90 }
+  - { name: pity,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: resentment,      baseline: 0.0, halflife_minutes: 90 }
+  - { name: gloating,        baseline: 0.0, halflife_minutes: 90 }
+  # 帰属（attribution）: 行為の称賛性 × 主体から
+  - { name: pride,           baseline: 0.0, halflife_minutes: 90 }
+  - { name: shame,           baseline: 0.0, halflife_minutes: 90 }
+  - { name: admiration,      baseline: 0.0, halflife_minutes: 90 }
+  - { name: reproach,        baseline: 0.0, halflife_minutes: 90 }
+  # 魅了（attraction）: 対象の魅力から
+  - { name: love,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: hate,            baseline: 0.0, halflife_minutes: 90 }
+  # 複合（compound）: 福利 × 帰属の共起から
+  - { name: gratification,   baseline: 0.0, halflife_minutes: 90 }
+  - { name: gratitude,       baseline: 0.0, halflife_minutes: 90 }
+  - { name: remorse,         baseline: 0.0, halflife_minutes: 90 }
+  - { name: anger,           baseline: 0.0, halflife_minutes: 90 }
+
+occ:
+  # 各評価分枝の「評価値 → 感情デルタ」変換強度
+  gains:
+    wellbeing:   0.8
+    prospect:    0.8
+    fortunes:    0.6
+    attribution: 0.8
+    attraction:  0.6
+    compound:    0.5
+  # 未解決見込み台帳の上限（超過時は最古を自動破棄）
+  max_prospects: 20
+
+fragment_file: ""
