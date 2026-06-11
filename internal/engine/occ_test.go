@@ -44,9 +44,15 @@ func TestApplyAppraisalWellbeing(t *testing.T) {
 	if !almostEqual(s.Axes["joy"], 0.40) {
 		t.Errorf("joy = %v, want 0.40", s.Axes["joy"])
 	}
+	if s.Axes["distress"] != 0 {
+		t.Errorf("distress = %v, want 0", s.Axes["distress"])
+	}
 	s = applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{Desirability: -0.5}})
 	if !almostEqual(s.Axes["distress"], 0.40) {
 		t.Errorf("distress = %v, want 0.40", s.Axes["distress"])
+	}
+	if s.Axes["joy"] != 0 {
+		t.Errorf("joy = %v, want 0", s.Axes["joy"])
 	}
 }
 
@@ -67,6 +73,18 @@ func TestApplyAppraisalAttribution(t *testing.T) {
 		if !almostEqual(s.Axes[tt.axis], 0.40) {
 			t.Errorf("%s = %v, want 0.40", tt.axis, s.Axes[tt.axis])
 		}
+		for _, other := range []string{"pride", "shame", "admiration", "reproach"} {
+			if other != tt.axis && s.Axes[other] != 0 {
+				t.Errorf("%s = %v, want 0 when only %s should fire", other, s.Axes[other], tt.axis)
+			}
+		}
+	}
+}
+
+func TestApplyAppraisalForOtherDoesNotRaiseWellbeing(t *testing.T) {
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5, For: "other", Liking: f64(0.4)}})
+	if s.Axes["joy"] != 0 || s.Axes["distress"] != 0 {
+		t.Errorf("for-other consequence must not raise joy/distress: joy=%v distress=%v", s.Axes["joy"], s.Axes["distress"])
 	}
 }
 

@@ -153,6 +153,8 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 	if c := a.Consequence; c != nil && c.Desirability != 0 {
 		des := c.Desirability
 		switch {
+		case c.For == "other":
+			// fortunes-of-others: rule added in a later task; no emotion yet.
 		default:
 			// well-being: actual consequence for self.
 			mag := g.Wellbeing * math.Abs(des)
