@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -270,6 +271,25 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 	}
 
 	return ApplyDeltas(s, deltas, cfg)
+}
+
+// RenderOCC returns the occ state as a one-line JSON object holding the axes
+// and the unresolved prospect ledger. Showing the ledger every turn is what
+// lets a later session (with no conversational memory of the prospect)
+// recognize and resolve it.
+func RenderOCC(s State, cfg Config) string {
+	type slimProspect struct {
+		ID           string  `json:"id"`
+		Label        string  `json:"label"`
+		Desirability float64 `json:"desirability"`
+		Likelihood   float64 `json:"likelihood"`
+	}
+	slim := make([]slimProspect, 0, len(s.Prospects))
+	for _, p := range s.Prospects {
+		slim = append(slim, slimProspect{p.ID, p.Label, p.Desirability, p.Likelihood})
+	}
+	b, _ := json.Marshal(slim)
+	return `{"axes":` + Render(s, cfg) + `,"prospects":` + string(b) + `}`
 }
 
 // takeProspect removes the ledger entry with the given id, returning it and

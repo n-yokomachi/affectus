@@ -260,6 +260,31 @@ func TestApplyAppraisalResolveUnknownID(t *testing.T) {
 	}
 }
 
+func TestRenderOCC(t *testing.T) {
+	cfg := occCfg(t)
+	s := prospectState(t, cfg, 0.6)
+	out := RenderOCC(s, cfg)
+	for _, want := range []string{`{"axes":{`, `"hope":0.24`, `"prospects":[{"id":"p1","label":"x","desirability":0.6,"likelihood":0.5}]`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("RenderOCC missing %q in %s", want, out)
+		}
+	}
+	if strings.Contains(out, "created_at") {
+		t.Errorf("RenderOCC should not expose created_at: %s", out)
+	}
+	if strings.Contains(out, "\n") {
+		t.Errorf("RenderOCC must be one line: %q", out)
+	}
+}
+
+func TestRenderOCCEmptyLedger(t *testing.T) {
+	cfg := occCfg(t)
+	out := RenderOCC(NewState(cfg, occNow), cfg)
+	if !strings.Contains(out, `"prospects":[]`) {
+		t.Errorf(`want "prospects":[] for empty ledger, got %s`, out)
+	}
+}
+
 func TestApplyAppraisalResolveAndNewProspectInOneCall(t *testing.T) {
 	cfg := occCfg(t)
 	s := prospectState(t, cfg, 0.6) // p1 in ledger
