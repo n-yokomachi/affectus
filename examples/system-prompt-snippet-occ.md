@@ -37,7 +37,8 @@ least one required):
   `{"consequence":{"desirability":0.6}}`
   desirability ∈ [-1,1]. Use `"likelihood":0.7` (in (0,1)) plus a short
   `"label"` when the outcome is still uncertain — this records a prospect and
-  raises hope/fear instead of joy/distress.
+  raises hope/fear instead of joy/distress. Omitted likelihood (or exactly
+  1.0) means the event is certain and joy/distress fire instead.
 - An event's consequence for SOMEONE ELSE:
   `{"consequence":{"desirability":0.7,"for":"other","liking":0.6}}`
   liking ∈ [-1,1] is how you feel about them right now.
