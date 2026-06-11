@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/n-yokomachi/affectus/internal/cli"
+	"github.com/n-yokomachi/affectus/internal/engine"
 )
 
 func mcpTestEnv(t *testing.T) cli.Env {
@@ -80,5 +81,57 @@ func TestToolDescriptionsAreModelNeutral(t *testing.T) {
 		if strings.Contains(d, "Plutchik") {
 			t.Errorf("tool description should not hardcode a model name: %q", d)
 		}
+	}
+}
+
+func TestHandleAppraiseDerivesEmotions(t *testing.T) {
+	env := mcpTestEnv(t)
+	if err := cli.Init(env, "occ", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lik := 0.5
+	res, err := handleAppraise(env, engine.Appraisal{
+		Consequence: &engine.ConsequenceAppraisal{Desirability: 0.6, Likelihood: &lik, Label: "pr merge"},
+	})
+	if err != nil {
+		t.Fatalf("handleAppraise: %v", err)
+	}
+	if res.Axes["hope"] < 0.23 || res.Axes["hope"] > 0.25 {
+		t.Errorf("hope = %v, want ~0.24", res.Axes["hope"])
+	}
+	if len(res.Prospects) != 1 || res.Prospects[0].ID != "p1" {
+		t.Errorf("prospects = %+v, want one entry p1", res.Prospects)
+	}
+}
+
+func TestHandleAppraiseRequiresOCC(t *testing.T) {
+	env := mcpTestEnv(t)
+	if err := cli.Init(env, "plutchik", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if _, err := handleAppraise(env, engine.Appraisal{
+		Object: &engine.ObjectAppraisal{Appealingness: 0.5},
+	}); err == nil {
+		t.Fatal("appraise on plutchik config should error")
+	}
+}
+
+func TestHandleShowIncludesProspects(t *testing.T) {
+	env := mcpTestEnv(t)
+	if err := cli.Init(env, "occ", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lik := 0.5
+	if _, err := handleAppraise(env, engine.Appraisal{
+		Consequence: &engine.ConsequenceAppraisal{Desirability: 0.6, Likelihood: &lik, Label: "x"},
+	}); err != nil {
+		t.Fatalf("handleAppraise: %v", err)
+	}
+	res, err := handleShow(env)
+	if err != nil {
+		t.Fatalf("handleShow: %v", err)
+	}
+	if len(res.Prospects) != 1 {
+		t.Errorf("show should include the ledger, got %+v", res)
 	}
 }
