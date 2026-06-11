@@ -121,6 +121,71 @@ func TestApplyAppraisalRejectsInvalid(t *testing.T) {
 	}
 }
 
+func TestApplyAppraisalProspectCreatesLedgerEntry(t *testing.T) {
+	// gains.prospect = 0.8; hope = 0.8 * 0.6 * 0.5 = 0.24
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: 0.6, Likelihood: f64(0.5), Label: "pr merge"}})
+	if !almostEqual(s.Axes["hope"], 0.24) {
+		t.Errorf("hope = %v, want 0.24", s.Axes["hope"])
+	}
+	if len(s.Prospects) != 1 {
+		t.Fatalf("prospects = %d, want 1", len(s.Prospects))
+	}
+	p := s.Prospects[0]
+	if p.ID != "p1" || p.Label != "pr merge" || !almostEqual(p.Desirability, 0.6) || !almostEqual(p.Likelihood, 0.5) {
+		t.Errorf("ledger entry = %+v", p)
+	}
+	if !p.CreatedAt.Equal(occNow) {
+		t.Errorf("created_at = %v, want %v", p.CreatedAt, occNow)
+	}
+	if s.ProspectSeq != 1 {
+		t.Errorf("prospect_seq = %d, want 1", s.ProspectSeq)
+	}
+}
+
+func TestApplyAppraisalNegativeProspectRaisesFear(t *testing.T) {
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: -0.6, Likelihood: f64(0.5), Label: "deploy may fail"}})
+	if !almostEqual(s.Axes["fear"], 0.24) {
+		t.Errorf("fear = %v, want 0.24", s.Axes["fear"])
+	}
+}
+
+func TestApplyAppraisalLikelihoodOneIsWellbeing(t *testing.T) {
+	// likelihood exactly 1.0 = certain -> joy, no ledger entry.
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: 0.5, Likelihood: f64(1.0)}})
+	if !almostEqual(s.Axes["joy"], 0.40) {
+		t.Errorf("joy = %v, want 0.40", s.Axes["joy"])
+	}
+	if len(s.Prospects) != 0 {
+		t.Errorf("prospects = %d, want 0", len(s.Prospects))
+	}
+}
+
+func TestApplyAppraisalLedgerCapDropsOldest(t *testing.T) {
+	cfg := occCfg(t)
+	cfg.OCC.MaxProspects = 2
+	s := NewState(cfg, occNow)
+	var err error
+	for i, label := range []string{"first", "second", "third"} {
+		s, err = ApplyAppraisal(s, Appraisal{Consequence: &ConsequenceAppraisal{
+			Desirability: 0.5, Likelihood: f64(0.5), Label: label}}, cfg, occNow)
+		if err != nil {
+			t.Fatalf("appraisal %d: %v", i, err)
+		}
+	}
+	if len(s.Prospects) != 2 {
+		t.Fatalf("prospects = %d, want 2 (capped)", len(s.Prospects))
+	}
+	if s.Prospects[0].Label != "second" || s.Prospects[1].Label != "third" {
+		t.Errorf("oldest should be dropped, got %+v", s.Prospects)
+	}
+	if s.ProspectSeq != 3 {
+		t.Errorf("prospect_seq = %d, want 3 (monotonic)", s.ProspectSeq)
+	}
+}
+
 func TestAppraisalValidate(t *testing.T) {
 	tests := []struct {
 		name    string

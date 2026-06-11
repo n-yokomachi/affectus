@@ -155,6 +155,27 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 		switch {
 		case c.For == "other":
 			// fortunes-of-others: rule added in a later task; no emotion yet.
+		case c.Likelihood != nil && *c.Likelihood < 1:
+			// prospect: uncertain consequence for self — hope/fear now,
+			// ledger entry so a later session can resolve it.
+			l := *c.Likelihood
+			mag := g.Prospect * math.Abs(des) * l
+			if des > 0 {
+				deltas["hope"] += mag
+			} else {
+				deltas["fear"] += mag
+			}
+			s.ProspectSeq++
+			s.Prospects = append(s.Prospects, Prospect{
+				ID:           fmt.Sprintf("p%d", s.ProspectSeq),
+				Label:        c.Label,
+				Desirability: des,
+				Likelihood:   l,
+				CreatedAt:    now,
+			})
+			if max := cfg.OCC.MaxProspects; len(s.Prospects) > max {
+				s.Prospects = append([]Prospect(nil), s.Prospects[len(s.Prospects)-max:]...)
+			}
 		default:
 			// well-being: actual consequence for self.
 			mag := g.Wellbeing * math.Abs(des)
