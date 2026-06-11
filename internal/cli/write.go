@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/n-yokomachi/affectus/internal/engine"
 )
@@ -30,7 +31,7 @@ func ApplyFeel(env Env, deltas map[string]float64) (string, map[string]float64, 
 		if err := engine.SaveState(env.StatePath, s); err != nil {
 			return err
 		}
-		rendered = engine.Render(s, cfg)
+		rendered = renderLine(cfg, s)
 		axes = s.Axes
 		return writeFragment(cfg, s)
 	})
@@ -86,4 +87,55 @@ func Reset(env Env) error {
 		}
 		return writeFragment(cfg, s)
 	})
+}
+
+// ApplyAppraise decays, applies the appraisal through the OCC rules, persists,
+// refreshes the optional snapshot file, and returns the rendered line and the
+// new state. It holds the state lock for the whole read-modify-write cycle.
+func ApplyAppraise(env Env, a engine.Appraisal) (string, engine.State, error) {
+	cfg, err := loadConfig(env)
+	if err != nil {
+		return "", engine.State{}, err
+	}
+	var rendered string
+	var out engine.State
+	err = engine.WithLock(env.StatePath, func() error {
+		s, err := engine.LoadState(env.StatePath, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		s = engine.Decay(s, cfg, env.Now())
+		s, err = engine.ApplyAppraisal(s, a, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		if err := engine.SaveState(env.StatePath, s); err != nil {
+			return err
+		}
+		rendered = renderLine(cfg, s)
+		out = s
+		return writeFragment(cfg, s)
+	})
+	if err != nil {
+		return "", engine.State{}, err
+	}
+	return rendered, out, nil
+}
+
+// Appraise parses an appraisal JSON object and applies it via ApplyAppraise.
+// Unknown fields are rejected so LLM typos fail loudly instead of silently
+// dropping part of the appraisal.
+func Appraise(env Env, appraisalJSON string) error {
+	dec := json.NewDecoder(strings.NewReader(appraisalJSON))
+	dec.DisallowUnknownFields()
+	var a engine.Appraisal
+	if err := dec.Decode(&a); err != nil {
+		return fmt.Errorf("invalid appraisal JSON: %w", err)
+	}
+	rendered, _, err := ApplyAppraise(env, a)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(env.Stdout, rendered)
+	return nil
 }

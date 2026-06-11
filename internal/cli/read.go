@@ -8,19 +8,30 @@ import (
 	"github.com/n-yokomachi/affectus/internal/engine"
 )
 
-// ComputeShow loads state, applies decay for output (without persisting), and
-// returns the rendered JSON line and the decayed axis values.
-func ComputeShow(env Env) (string, map[string]float64, error) {
+// ComputeShowFull loads state, applies decay for output (without persisting),
+// and returns the rendered line, the decayed state, and the config. Callers
+// that need the prospect ledger (occ) use this; others use ComputeShow.
+func ComputeShowFull(env Env) (string, engine.State, engine.Config, error) {
 	cfg, err := loadConfig(env)
 	if err != nil {
-		return "", nil, err
+		return "", engine.State{}, engine.Config{}, err
 	}
 	s, err := engine.LoadState(env.StatePath, cfg, env.Now())
 	if err != nil {
-		return "", nil, err
+		return "", engine.State{}, engine.Config{}, err
 	}
 	s = engine.Decay(s, cfg, env.Now())
-	return engine.Render(s, cfg), s.Axes, nil
+	return renderLine(cfg, s), s, cfg, nil
+}
+
+// ComputeShow loads state, applies decay for output (without persisting), and
+// returns the rendered JSON line and the decayed axis values.
+func ComputeShow(env Env) (string, map[string]float64, error) {
+	line, s, _, err := ComputeShowFull(env)
+	if err != nil {
+		return "", nil, err
+	}
+	return line, s.Axes, nil
 }
 
 // Show prints the current emotion as text or JSON. Read-only: does not persist.

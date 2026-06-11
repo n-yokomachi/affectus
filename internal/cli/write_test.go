@@ -150,3 +150,80 @@ func splitLines(s string) []string {
 	}
 	return lines
 }
+
+func TestAppraiseLifecycle(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "occ", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	// well-being: joy = 0.8 * 0.5 = 0.40
+	if err := Appraise(env, `{"consequence":{"desirability":0.5}}`); err != nil {
+		t.Fatalf("Appraise: %v", err)
+	}
+	_, axes, err := ComputeShow(env)
+	if err != nil {
+		t.Fatalf("ComputeShow: %v", err)
+	}
+	if axes["joy"] < 0.39 || axes["joy"] > 0.41 {
+		t.Errorf("joy = %v, want ~0.40", axes["joy"])
+	}
+	// prospect -> ledger -> resolve
+	if err := Appraise(env, `{"consequence":{"desirability":0.6,"likelihood":0.5,"label":"pr merge"}}`); err != nil {
+		t.Fatalf("Appraise prospect: %v", err)
+	}
+	line, _, err := ComputeShow(env)
+	if err != nil {
+		t.Fatalf("ComputeShow: %v", err)
+	}
+	if !strings.Contains(line, `"prospects"`) || !strings.Contains(line, `"p1"`) {
+		t.Errorf("occ show line should include the ledger: %s", line)
+	}
+	if err := Appraise(env, `{"resolve":[{"id":"p1","outcome":"confirmed"}]}`); err != nil {
+		t.Fatalf("Appraise resolve: %v", err)
+	}
+	_, axes, err = ComputeShow(env)
+	if err != nil {
+		t.Fatalf("ComputeShow: %v", err)
+	}
+	if axes["satisfaction"] < 0.47 || axes["satisfaction"] > 0.49 {
+		t.Errorf("satisfaction = %v, want ~0.48", axes["satisfaction"])
+	}
+}
+
+func TestAppraiseRequiresOCCModel(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "plutchik", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := Appraise(env, `{"consequence":{"desirability":0.5}}`); err == nil {
+		t.Fatal("appraise on plutchik config should error")
+	}
+}
+
+func TestAppraiseRejectsBadJSON(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "occ", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := Appraise(env, `{not json`); err == nil {
+		t.Fatal("invalid JSON should error")
+	}
+	// unknown field (LLM typo) must be rejected, not silently ignored.
+	if err := Appraise(env, `{"consequences":{"desirability":0.5}}`); err == nil {
+		t.Fatal("unknown field should error")
+	}
+}
+
+func TestPlutchikShowLineHasNoProspects(t *testing.T) {
+	env, _ := testEnv(t)
+	if err := Init(env, "plutchik", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	line, _, err := ComputeShow(env)
+	if err != nil {
+		t.Fatalf("ComputeShow: %v", err)
+	}
+	if strings.Contains(line, "prospects") {
+		t.Errorf("plutchik show line must be unchanged: %s", line)
+	}
+}

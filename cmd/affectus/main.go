@@ -11,7 +11,7 @@ import (
 	"github.com/n-yokomachi/affectus/internal/cli"
 )
 
-const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|tick|reset|mcp|viz> [args]"
+const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|appraise|tick|reset|mcp|viz> [args]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -47,7 +47,7 @@ func run(args []string) error {
 	case "init":
 		ifs := flag.NewFlagSet("init", flag.ContinueOnError)
 		force := ifs.Bool("force", false, "overwrite existing files")
-		model := ifs.String("model", "plutchik", "emotion model: plutchik|russell")
+		model := ifs.String("model", "plutchik", "emotion model: plutchik|russell|occ")
 		if err := ifs.Parse(cmdArgs); err != nil {
 			return err
 		}
@@ -74,6 +74,19 @@ func run(args []string) error {
 			payload = string(b)
 		}
 		return cli.Feel(env, payload)
+	case "appraise":
+		if len(cmdArgs) != 1 {
+			return fmt.Errorf("usage: affectus appraise '<appraisal-json>'  (use - to read JSON from stdin)")
+		}
+		payload := cmdArgs[0]
+		if payload == "-" {
+			b, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
+			if err != nil {
+				return err
+			}
+			payload = string(b)
+		}
+		return cli.Appraise(env, payload)
 	case "tick":
 		return cli.Tick(env)
 	case "reset":

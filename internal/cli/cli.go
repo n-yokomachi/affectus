@@ -46,12 +46,21 @@ func loadConfig(env Env) (engine.Config, error) {
 	return engine.DefaultConfig()
 }
 
+// renderLine renders the one-line state JSON for the model: occ includes the
+// prospect ledger, other models are the plain axes object.
+func renderLine(cfg engine.Config, s engine.State) string {
+	if cfg.Model == "occ" {
+		return engine.RenderOCC(s, cfg)
+	}
+	return engine.Render(s, cfg)
+}
+
 // writeFragment writes the current axes JSON snapshot to cfg.FragmentFile when set.
 func writeFragment(cfg engine.Config, s engine.State) error {
 	if cfg.FragmentFile == "" {
 		return nil
 	}
-	return os.WriteFile(cfg.FragmentFile, []byte(engine.Render(s, cfg)+"\n"), 0o644)
+	return os.WriteFile(cfg.FragmentFile, []byte(renderLine(cfg, s)+"\n"), 0o644)
 }
 
 // Init writes the config for the given model and a baseline state file.
