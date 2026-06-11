@@ -54,8 +54,9 @@ func handleFeel(env cli.Env, in feelInput) (showResult, error) {
 	return showResult{Axes: axes}, nil
 }
 
-// Serve runs the affectus MCP server over stdio, exposing emotion_show and
-// emotion_feel. Idle decay still requires a separate cron `affectus tick`.
+// Serve runs the affectus MCP server over stdio, exposing emotion_show,
+// emotion_feel, and emotion_appraise. Idle decay still requires a separate
+// cron `affectus tick`.
 func Serve(ctx context.Context, env cli.Env) error {
 	server := mcp.NewServer(&mcp.Implementation{Name: "affectus", Version: serverVersion}, nil)
 
