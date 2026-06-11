@@ -3,9 +3,105 @@ package engine
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func f64(v float64) *float64 { return &v }
+
+func occCfg(t *testing.T) Config {
+	t.Helper()
+	cfg, err := ParseConfig(Models["occ"])
+	if err != nil {
+		t.Fatalf("parse occ default config: %v", err)
+	}
+	return cfg
+}
+
+var occNow = time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
+
+// applyOCC is a test shorthand: fresh state -> ApplyAppraisal.
+func applyOCC(t *testing.T, a Appraisal) State {
+	t.Helper()
+	cfg := occCfg(t)
+	s, err := ApplyAppraisal(NewState(cfg, occNow), a, cfg, occNow)
+	if err != nil {
+		t.Fatalf("ApplyAppraisal: %v", err)
+	}
+	return s
+}
+
+func TestApplyAppraisalRequiresOCCModel(t *testing.T) {
+	cfg, _ := DefaultConfig() // plutchik
+	_, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{Object: &ObjectAppraisal{Appealingness: 0.5}}, cfg, occNow)
+	if err == nil || !strings.Contains(err.Error(), "occ") {
+		t.Fatalf("want occ-model error, got %v", err)
+	}
+}
+
+func TestApplyAppraisalWellbeing(t *testing.T) {
+	// gains.wellbeing = 0.8
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.5}})
+	if !almostEqual(s.Axes["joy"], 0.40) {
+		t.Errorf("joy = %v, want 0.40", s.Axes["joy"])
+	}
+	s = applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{Desirability: -0.5}})
+	if !almostEqual(s.Axes["distress"], 0.40) {
+		t.Errorf("distress = %v, want 0.40", s.Axes["distress"])
+	}
+}
+
+func TestApplyAppraisalAttribution(t *testing.T) {
+	// gains.attribution = 0.8
+	tests := []struct {
+		praise float64
+		agent  string
+		axis   string
+	}{
+		{0.5, "self", "pride"},
+		{-0.5, "self", "shame"},
+		{0.5, "other", "admiration"},
+		{-0.5, "other", "reproach"},
+	}
+	for _, tt := range tests {
+		s := applyOCC(t, Appraisal{Action: &ActionAppraisal{Praiseworthiness: tt.praise, Agent: tt.agent}})
+		if !almostEqual(s.Axes[tt.axis], 0.40) {
+			t.Errorf("%s = %v, want 0.40", tt.axis, s.Axes[tt.axis])
+		}
+	}
+}
+
+func TestApplyAppraisalAttraction(t *testing.T) {
+	// gains.attraction = 0.6
+	s := applyOCC(t, Appraisal{Object: &ObjectAppraisal{Appealingness: 0.5}})
+	if !almostEqual(s.Axes["love"], 0.30) {
+		t.Errorf("love = %v, want 0.30", s.Axes["love"])
+	}
+	s = applyOCC(t, Appraisal{Object: &ObjectAppraisal{Appealingness: -0.5}})
+	if !almostEqual(s.Axes["hate"], 0.30) {
+		t.Errorf("hate = %v, want 0.30", s.Axes["hate"])
+	}
+}
+
+func TestApplyAppraisalZeroValuesAreNoop(t *testing.T) {
+	s := applyOCC(t, Appraisal{
+		Consequence: &ConsequenceAppraisal{Desirability: 0},
+		Action:      &ActionAppraisal{Praiseworthiness: 0, Agent: "self"},
+		Object:      &ObjectAppraisal{Appealingness: 0},
+	})
+	for name, v := range s.Axes {
+		if v != 0 {
+			t.Errorf("axis %s = %v, want 0 (zero appraisal is a no-op)", name, v)
+		}
+	}
+}
+
+func TestApplyAppraisalRejectsInvalid(t *testing.T) {
+	cfg := occCfg(t)
+	_, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{}, cfg, occNow)
+	if err == nil {
+		t.Fatal("empty appraisal should error")
+	}
+}
 
 func TestAppraisalValidate(t *testing.T) {
 	tests := []struct {

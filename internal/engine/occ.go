@@ -1,6 +1,10 @@
 package engine
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+	"time"
+)
 
 // OCCAxisNames is the full 22-emotion axis set of the OCC model
 // (Ortony, Clore & Collins 1988), grouped by appraisal branch.
@@ -129,4 +133,61 @@ func (a Appraisal) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ApplyAppraisal validates the appraisal, derives emotion deltas per the OCC
+// rules, updates the prospect ledger, and applies the deltas through
+// ApplyDeltas. now stamps newly created ledger entries.
+func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, error) {
+	if cfg.Model != "occ" || cfg.OCC == nil {
+		return State{}, fmt.Errorf("appraise requires an occ-model config (got model %q)", cfg.Model)
+	}
+	if err := a.Validate(); err != nil {
+		return State{}, err
+	}
+	g := cfg.OCC.Gains
+	deltas := map[string]float64{}
+
+	// Consequences of events (well-being branch; prospect and
+	// fortunes-of-others branches are added in later rules).
+	if c := a.Consequence; c != nil && c.Desirability != 0 {
+		des := c.Desirability
+		switch {
+		default:
+			// well-being: actual consequence for self.
+			mag := g.Wellbeing * math.Abs(des)
+			if des > 0 {
+				deltas["joy"] += mag
+			} else {
+				deltas["distress"] += mag
+			}
+		}
+	}
+
+	// Attribution: actions of agents against standards.
+	if act := a.Action; act != nil && act.Praiseworthiness != 0 {
+		mag := g.Attribution * math.Abs(act.Praiseworthiness)
+		switch {
+		case act.Agent == "self" && act.Praiseworthiness > 0:
+			deltas["pride"] += mag
+		case act.Agent == "self":
+			deltas["shame"] += mag
+		case act.Praiseworthiness > 0:
+			deltas["admiration"] += mag
+		default:
+			deltas["reproach"] += mag
+		}
+	}
+
+	// Attraction: aspects of objects against attitudes.
+	if o := a.Object; o != nil && o.Appealingness != 0 {
+		mag := g.Attraction * math.Abs(o.Appealingness)
+		if o.Appealingness > 0 {
+			deltas["love"] += mag
+		} else {
+			deltas["hate"] += mag
+		}
+	}
+
+	return ApplyDeltas(s, deltas, cfg)
 }
