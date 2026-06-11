@@ -383,16 +383,20 @@ func TestApplyAppraisalNoCompoundForProspectOrOther(t *testing.T) {
 		Consequence: &ConsequenceAppraisal{Desirability: 0.6, Likelihood: f64(0.5), Label: "x"},
 		Action:      &ActionAppraisal{Praiseworthiness: 0.4, Agent: "other"},
 	})
-	if s.Axes["gratitude"] != 0 {
-		t.Errorf("gratitude = %v, want 0 (prospect is not actual)", s.Axes["gratitude"])
+	for _, axis := range []string{"gratification", "gratitude", "remorse", "anger"} {
+		if s.Axes[axis] != 0 {
+			t.Errorf("%s = %v, want 0 (prospect exclusion)", axis, s.Axes[axis])
+		}
 	}
 	// for-other consequence + action: no compound.
 	s = applyOCC(t, Appraisal{
 		Consequence: &ConsequenceAppraisal{Desirability: 0.6, For: "other", Liking: f64(0.5)},
 		Action:      &ActionAppraisal{Praiseworthiness: 0.4, Agent: "other"},
 	})
-	if s.Axes["gratitude"] != 0 {
-		t.Errorf("gratitude = %v, want 0 (consequence is for other)", s.Axes["gratitude"])
+	for _, axis := range []string{"gratification", "gratitude", "remorse", "anger"} {
+		if s.Axes[axis] != 0 {
+			t.Errorf("%s = %v, want 0 (for-other exclusion)", axis, s.Axes[axis])
+		}
 	}
 }
 
