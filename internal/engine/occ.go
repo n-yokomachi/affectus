@@ -118,14 +118,14 @@ func (a Appraisal) Validate() error {
 			return fmt.Errorf("appraisal: appealingness %v outside [-1, 1]", o.Appealingness)
 		}
 	}
-	for _, r := range a.Resolve {
+	for i, r := range a.Resolve {
 		if r.ID == "" {
-			return fmt.Errorf("appraisal: resolve entry missing id")
+			return fmt.Errorf("appraisal: resolve[%d] missing id", i)
 		}
 		switch r.Outcome {
 		case OutcomeConfirmed, OutcomeDisconfirmed, OutcomeDropped:
 		default:
-			return fmt.Errorf("appraisal: outcome must be confirmed|disconfirmed|dropped, got %q", r.Outcome)
+			return fmt.Errorf("appraisal: resolve[%d] outcome must be confirmed|disconfirmed|dropped, got %q", i, r.Outcome)
 		}
 	}
 	return nil
