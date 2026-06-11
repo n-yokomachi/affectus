@@ -27,12 +27,21 @@ type clampRange struct {
 	Max float64 `json:"max"`
 }
 
+// prospectValue is one prospect ledger entry in the /state response (occ).
+type prospectValue struct {
+	ID           string  `json:"id"`
+	Label        string  `json:"label"`
+	Desirability float64 `json:"desirability"`
+	Likelihood   float64 `json:"likelihood"`
+}
+
 // stateResponse is the JSON body of GET /state.
 type stateResponse struct {
-	UpdatedAt time.Time   `json:"updated_at"`
-	Model     string      `json:"model"`
-	Clamp     clampRange  `json:"clamp"`
-	Axes      []axisValue `json:"axes"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	Model     string          `json:"model"`
+	Clamp     clampRange      `json:"clamp"`
+	Axes      []axisValue     `json:"axes"`
+	Prospects []prospectValue `json:"prospects,omitempty"`
 }
 
 // loadConfig loads the config file if present, otherwise the embedded default.
@@ -69,6 +78,11 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 			Baseline:        ax.Baseline,
 			HalflifeMinutes: ax.HalflifeMinutes,
 			Range:           r,
+		})
+	}
+	for _, p := range s.Prospects {
+		resp.Prospects = append(resp.Prospects, prospectValue{
+			ID: p.ID, Label: p.Label, Desirability: p.Desirability, Likelihood: p.Likelihood,
 		})
 	}
 	return json.MarshalIndent(resp, "", "  ")

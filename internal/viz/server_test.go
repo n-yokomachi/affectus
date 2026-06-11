@@ -11,6 +11,30 @@ import (
 	"github.com/n-yokomachi/affectus/internal/engine"
 )
 
+func TestStateJSONIncludesProspects(t *testing.T) {
+	cfg, err := engine.ParseConfig(engine.Models["occ"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
+	s := engine.NewState(cfg, now)
+	s.ProspectSeq = 1
+	s.Prospects = []engine.Prospect{{ID: "p1", Label: "pr merge", Desirability: 0.6, Likelihood: 0.7, CreatedAt: now}}
+	if err := engine.SaveState(statePath, s); err != nil {
+		t.Fatal(err)
+	}
+	b, err := stateJSON(cfg, statePath, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(b)
+	if !strings.Contains(out, `"prospects"`) || !strings.Contains(out, `"p1"`) || !strings.Contains(out, `"model": "occ"`) {
+		t.Errorf("state JSON missing occ fields: %s", out)
+	}
+}
+
 func TestStateJSONDecaysToNow(t *testing.T) {
 	cfg, _ := engine.DefaultConfig()
 	statePath := filepath.Join(t.TempDir(), "state.json")
