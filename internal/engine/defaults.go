@@ -2,7 +2,7 @@ package engine
 
 import _ "embed"
 
-//go:embed plutchik8.default.yaml
+//go:embed plutchik.default.yaml
 var plutchikYAML []byte
 
 //go:embed russell.default.yaml

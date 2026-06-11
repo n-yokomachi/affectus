@@ -89,7 +89,7 @@ mood visibly drifts toward baseline between turns. The server is read-only.
 Default axes are Plutchik's 8 emotions (joy, sadness, trust, disgust, fear,
 anger, surprise, anticipation), each `0.0–1.0`. Axis names, count, baselines,
 and half-lives are all configurable — see the config written by `affectus init`
-and `examples/configs/plutchik8-ja.yaml`.
+and `examples/configs/plutchik-ja.yaml`.
 
 **v0.3 note:** affectus no longer renders emotions as natural-language text.
 It emits a one-line JSON object of all axes; the LLM is responsible for
