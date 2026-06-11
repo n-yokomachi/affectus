@@ -326,6 +326,76 @@ func TestApplyAppraisalZeroLikingIsNoop(t *testing.T) {
 	}
 }
 
+func TestApplyAppraisalCompounds(t *testing.T) {
+	// compound magnitude = gains.compound * min(|des|, |praise|) = 0.5 * 0.4 = 0.20
+	// components also fire: well-being 0.8*|des|, attribution 0.8*|praise|.
+	tests := []struct {
+		des      float64
+		praise   float64
+		agent    string
+		compound string
+		comp1    string // well-being component
+		comp2    string // attribution component
+	}{
+		{0.6, 0.4, "self", "gratification", "joy", "pride"},
+		{0.6, 0.4, "other", "gratitude", "joy", "admiration"},
+		{-0.6, -0.4, "self", "remorse", "distress", "shame"},
+		{-0.6, -0.4, "other", "anger", "distress", "reproach"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.compound, func(t *testing.T) {
+			s := applyOCC(t, Appraisal{
+				Consequence: &ConsequenceAppraisal{Desirability: tt.des},
+				Action:      &ActionAppraisal{Praiseworthiness: tt.praise, Agent: tt.agent},
+			})
+			if !almostEqual(s.Axes[tt.compound], 0.20) {
+				t.Errorf("%s = %v, want 0.20", tt.compound, s.Axes[tt.compound])
+			}
+			if !almostEqual(s.Axes[tt.comp1], 0.48) {
+				t.Errorf("%s = %v, want 0.48 (component must also fire)", tt.comp1, s.Axes[tt.comp1])
+			}
+			if !almostEqual(s.Axes[tt.comp2], 0.32) {
+				t.Errorf("%s = %v, want 0.32 (component must also fire)", tt.comp2, s.Axes[tt.comp2])
+			}
+		})
+	}
+}
+
+func TestApplyAppraisalNoCompoundOnSignMismatch(t *testing.T) {
+	// desirable outcome + blameworthy action: components fire, no compound.
+	s := applyOCC(t, Appraisal{
+		Consequence: &ConsequenceAppraisal{Desirability: 0.6},
+		Action:      &ActionAppraisal{Praiseworthiness: -0.4, Agent: "other"},
+	})
+	for _, axis := range []string{"gratification", "gratitude", "remorse", "anger"} {
+		if s.Axes[axis] != 0 {
+			t.Errorf("%s = %v, want 0 (sign mismatch)", axis, s.Axes[axis])
+		}
+	}
+	if !almostEqual(s.Axes["joy"], 0.48) || !almostEqual(s.Axes["reproach"], 0.32) {
+		t.Errorf("components should still fire: %+v", s.Axes)
+	}
+}
+
+func TestApplyAppraisalNoCompoundForProspectOrOther(t *testing.T) {
+	// prospect consequence + action: no compound (consequence not actual).
+	s := applyOCC(t, Appraisal{
+		Consequence: &ConsequenceAppraisal{Desirability: 0.6, Likelihood: f64(0.5), Label: "x"},
+		Action:      &ActionAppraisal{Praiseworthiness: 0.4, Agent: "other"},
+	})
+	if s.Axes["gratitude"] != 0 {
+		t.Errorf("gratitude = %v, want 0 (prospect is not actual)", s.Axes["gratitude"])
+	}
+	// for-other consequence + action: no compound.
+	s = applyOCC(t, Appraisal{
+		Consequence: &ConsequenceAppraisal{Desirability: 0.6, For: "other", Liking: f64(0.5)},
+		Action:      &ActionAppraisal{Praiseworthiness: 0.4, Agent: "other"},
+	})
+	if s.Axes["gratitude"] != 0 {
+		t.Errorf("gratitude = %v, want 0 (consequence is for other)", s.Axes["gratitude"])
+	}
+}
+
 func TestAppraisalValidate(t *testing.T) {
 	tests := []struct {
 		name    string

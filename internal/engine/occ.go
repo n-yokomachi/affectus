@@ -249,6 +249,26 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 		}
 	}
 
+	// Compounds fire in addition to their components when an actual
+	// consequence for self and an action share the appraisal with aligned
+	// signs (OCC: compound emotions are co-occurrences).
+	if c, act := a.Consequence, a.Action; c != nil && act != nil &&
+		c.For != "other" && (c.Likelihood == nil || *c.Likelihood >= 1) &&
+		c.Desirability != 0 && act.Praiseworthiness != 0 &&
+		(c.Desirability > 0) == (act.Praiseworthiness > 0) {
+		mag := g.Compound * math.Min(math.Abs(c.Desirability), math.Abs(act.Praiseworthiness))
+		switch {
+		case c.Desirability > 0 && act.Agent == "self":
+			deltas["gratification"] += mag
+		case c.Desirability > 0:
+			deltas["gratitude"] += mag
+		case act.Agent == "self":
+			deltas["remorse"] += mag
+		default:
+			deltas["anger"] += mag
+		}
+	}
+
 	return ApplyDeltas(s, deltas, cfg)
 }
 
