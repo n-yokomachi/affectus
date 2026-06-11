@@ -177,7 +177,20 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 		des := c.Desirability
 		switch {
 		case c.For == "other":
-			// fortunes-of-others: rule added in a later task; no emotion yet.
+			// fortunes-of-others: 4 quadrants of desirability x liking.
+			if lik := *c.Liking; lik != 0 {
+				mag := g.Fortunes * math.Abs(des) * math.Abs(lik)
+				switch {
+				case des > 0 && lik > 0:
+					deltas["happy-for"] += mag
+				case des < 0 && lik > 0:
+					deltas["pity"] += mag
+				case des > 0 && lik < 0:
+					deltas["resentment"] += mag
+				default:
+					deltas["gloating"] += mag
+				}
+			}
 		case c.Likelihood != nil && *c.Likelihood < 1:
 			// prospect: uncertain consequence for self (Validate guarantees
 			// likelihood > 0) — hope/fear now, ledger entry so a later

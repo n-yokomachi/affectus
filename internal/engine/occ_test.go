@@ -281,6 +281,43 @@ func TestApplyAppraisalResolveAndNewProspectInOneCall(t *testing.T) {
 	}
 }
 
+func TestApplyAppraisalFortunesOfOthers(t *testing.T) {
+	// gains.fortunes = 0.6; magnitude = 0.6 * |des| * |liking| = 0.6*0.5*0.4 = 0.12
+	tests := []struct {
+		des    float64
+		liking float64
+		axis   string
+	}{
+		{0.5, 0.4, "happy-for"},
+		{-0.5, 0.4, "pity"},
+		{0.5, -0.4, "resentment"},
+		{-0.5, -0.4, "gloating"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.axis, func(t *testing.T) {
+			s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{
+				Desirability: tt.des, For: "other", Liking: f64(tt.liking)}})
+			if !almostEqual(s.Axes[tt.axis], 0.12) {
+				t.Errorf("%s = %v, want 0.12", tt.axis, s.Axes[tt.axis])
+			}
+			// fortunes must not leak into well-being.
+			if s.Axes["joy"] != 0 || s.Axes["distress"] != 0 {
+				t.Errorf("for-other consequence must not raise joy/distress: %+v", s.Axes)
+			}
+		})
+	}
+}
+
+func TestApplyAppraisalZeroLikingIsNoop(t *testing.T) {
+	s := applyOCC(t, Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: 0.5, For: "other", Liking: f64(0)}})
+	for name, v := range s.Axes {
+		if v != 0 {
+			t.Errorf("axis %s = %v, want 0 (zero liking is a no-op)", name, v)
+		}
+	}
+}
+
 func TestAppraisalValidate(t *testing.T) {
 	tests := []struct {
 		name    string
