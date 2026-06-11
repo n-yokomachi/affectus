@@ -28,6 +28,23 @@ type AxisConfig struct {
 	Range *Range `yaml:"range"`
 }
 
+// OCCGains holds per-branch conversion strengths from appraisal values to
+// emotion deltas (occ model).
+type OCCGains struct {
+	Wellbeing   float64 `yaml:"wellbeing"`
+	Prospect    float64 `yaml:"prospect"`
+	Fortunes    float64 `yaml:"fortunes"`
+	Attribution float64 `yaml:"attribution"`
+	Attraction  float64 `yaml:"attraction"`
+	Compound    float64 `yaml:"compound"`
+}
+
+// OCCConfig is the occ-model section of the config. nil for other models.
+type OCCConfig struct {
+	Gains        OCCGains `yaml:"gains"`
+	MaxProspects int      `yaml:"max_prospects"`
+}
+
 // Config is the full library configuration.
 type Config struct {
 	Version int `yaml:"version"`
@@ -38,6 +55,7 @@ type Config struct {
 	Clamp        Range        `yaml:"clamp"`
 	DeltaClamp   Range        `yaml:"delta_clamp"`
 	Axes         []AxisConfig `yaml:"axes"`
+	OCC          *OCCConfig   `yaml:"occ"`
 	FragmentFile string       `yaml:"fragment_file"`
 }
 
@@ -96,6 +114,29 @@ func (c Config) Validate() error {
 	for _, ax := range c.Axes {
 		if ax.Opposite != "" && !seen[ax.Opposite] {
 			return fmt.Errorf("config: axis %q opposite %q is not a defined axis", ax.Name, ax.Opposite)
+		}
+	}
+	if c.Model == "occ" {
+		if c.OCC == nil {
+			return fmt.Errorf("config: model occ requires an occ section")
+		}
+		g := c.OCC.Gains
+		gains := map[string]float64{
+			"wellbeing": g.Wellbeing, "prospect": g.Prospect, "fortunes": g.Fortunes,
+			"attribution": g.Attribution, "attraction": g.Attraction, "compound": g.Compound,
+		}
+		for name, v := range gains {
+			if v < 0 {
+				return fmt.Errorf("config: occ gain %s must be non-negative", name)
+			}
+		}
+		if c.OCC.MaxProspects <= 0 {
+			return fmt.Errorf("config: occ max_prospects must be positive")
+		}
+		for _, name := range OCCAxisNames {
+			if !seen[name] {
+				return fmt.Errorf("config: model occ requires axis %q", name)
+			}
 		}
 	}
 	return nil

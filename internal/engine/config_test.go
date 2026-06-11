@@ -114,3 +114,57 @@ func TestValidateErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestOCCDefaultConfigValid(t *testing.T) {
+	cfg, err := ParseConfig(Models["occ"])
+	if err != nil {
+		t.Fatalf("occ default config invalid: %v", err)
+	}
+	if cfg.Model != "occ" {
+		t.Errorf("model = %q, want occ", cfg.Model)
+	}
+	if len(cfg.Axes) != 22 {
+		t.Errorf("axes = %d, want 22", len(cfg.Axes))
+	}
+	if cfg.OCC == nil || cfg.OCC.MaxProspects != 20 {
+		t.Errorf("occ section = %+v, want max_prospects 20", cfg.OCC)
+	}
+}
+
+func TestValidateOCCRequiresSection(t *testing.T) {
+	cfg, err := ParseConfig(Models["occ"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.OCC = nil
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "occ section") {
+		t.Fatalf("want occ-section error, got %v", err)
+	}
+}
+
+func TestValidateOCCRequiresAllAxes(t *testing.T) {
+	cfg, err := ParseConfig(Models["occ"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Axes = cfg.Axes[1:] // drop the first axis (joy)
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "requires axis") {
+		t.Fatalf("want missing-axis error, got %v", err)
+	}
+}
+
+func TestValidateOCCRejectsBadGainsAndCap(t *testing.T) {
+	cfg, err := ParseConfig(Models["occ"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.OCC.Gains.Wellbeing = -0.1
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "gain") {
+		t.Fatalf("want negative-gain error, got %v", err)
+	}
+	cfg.OCC.Gains.Wellbeing = 0.8
+	cfg.OCC.MaxProspects = 0
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "max_prospects") {
+		t.Fatalf("want max_prospects error, got %v", err)
+	}
+}

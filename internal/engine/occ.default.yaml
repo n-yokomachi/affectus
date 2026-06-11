@@ -1,0 +1,46 @@
+version: 1
+model: occ
+clamp:       { min: 0.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  # well-being
+  - { name: joy,             baseline: 0.0, halflife_minutes: 90 }
+  - { name: distress,        baseline: 0.0, halflife_minutes: 90 }
+  # prospect-based
+  - { name: hope,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: fear,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: satisfaction,    baseline: 0.0, halflife_minutes: 90 }
+  - { name: disappointment,  baseline: 0.0, halflife_minutes: 90 }
+  - { name: relief,          baseline: 0.0, halflife_minutes: 90 }
+  - { name: fears-confirmed, baseline: 0.0, halflife_minutes: 90 }
+  # fortunes-of-others
+  - { name: happy-for,       baseline: 0.0, halflife_minutes: 90 }
+  - { name: pity,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: resentment,      baseline: 0.0, halflife_minutes: 90 }
+  - { name: gloating,        baseline: 0.0, halflife_minutes: 90 }
+  # attribution
+  - { name: pride,           baseline: 0.0, halflife_minutes: 90 }
+  - { name: shame,           baseline: 0.0, halflife_minutes: 90 }
+  - { name: admiration,      baseline: 0.0, halflife_minutes: 90 }
+  - { name: reproach,        baseline: 0.0, halflife_minutes: 90 }
+  # attraction
+  - { name: love,            baseline: 0.0, halflife_minutes: 90 }
+  - { name: hate,            baseline: 0.0, halflife_minutes: 90 }
+  # compounds
+  - { name: gratification,   baseline: 0.0, halflife_minutes: 90 }
+  - { name: gratitude,       baseline: 0.0, halflife_minutes: 90 }
+  - { name: remorse,         baseline: 0.0, halflife_minutes: 90 }
+  - { name: anger,           baseline: 0.0, halflife_minutes: 90 }
+
+occ:
+  gains:
+    wellbeing:   0.8
+    prospect:    0.8
+    fortunes:    0.6
+    attribution: 0.8
+    attraction:  0.6
+    compound:    0.5
+  max_prospects: 20
+
+fragment_file: ""

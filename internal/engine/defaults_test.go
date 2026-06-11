@@ -40,7 +40,7 @@ func TestDefaultConfigAxisOrder(t *testing.T) {
 }
 
 func TestModelsRegistry(t *testing.T) {
-	for _, name := range []string{"plutchik", "russell"} {
+	for _, name := range []string{"plutchik", "russell", "occ"} {
 		yaml, ok := Models[name]
 		if !ok {
 			t.Fatalf("Models[%q] missing", name)
