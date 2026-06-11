@@ -53,7 +53,12 @@ func Show(env Env, format string) error {
 		}
 		out := map[string]any{"axes": rounded}
 		if cfg.Model == "occ" {
-			out["prospects"] = s.Prospects
+			// nil slice would encode as null; normalize to [] like the text format.
+			prospects := s.Prospects
+			if prospects == nil {
+				prospects = []engine.Prospect{}
+			}
+			out["prospects"] = prospects
 		}
 		enc := json.NewEncoder(env.Stdout)
 		enc.SetIndent("", "  ")
