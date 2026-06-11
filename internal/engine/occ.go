@@ -148,6 +148,29 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 	g := cfg.OCC.Gains
 	deltas := map[string]float64{}
 
+	// Prospect resolutions consume ledger entries first.
+	for _, r := range a.Resolve {
+		p, rest, ok := takeProspect(s.Prospects, r.ID)
+		if !ok {
+			return State{}, fmt.Errorf("unknown prospect %q", r.ID)
+		}
+		s.Prospects = rest
+		if r.Outcome == OutcomeDropped {
+			continue
+		}
+		mag := g.Prospect * math.Abs(p.Desirability)
+		switch {
+		case r.Outcome == OutcomeConfirmed && p.Desirability > 0:
+			deltas["satisfaction"] += mag
+		case r.Outcome == OutcomeConfirmed && p.Desirability < 0:
+			deltas["fears-confirmed"] += mag
+		case r.Outcome == OutcomeDisconfirmed && p.Desirability > 0:
+			deltas["disappointment"] += mag
+		case r.Outcome == OutcomeDisconfirmed && p.Desirability < 0:
+			deltas["relief"] += mag
+		}
+	}
+
 	// Consequences of events (well-being branch; prospect and
 	// fortunes-of-others branches are added in later rules).
 	if c := a.Consequence; c != nil && c.Desirability != 0 {
@@ -214,4 +237,16 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 	}
 
 	return ApplyDeltas(s, deltas, cfg)
+}
+
+// takeProspect removes the ledger entry with the given id, returning it and
+// the remaining entries.
+func takeProspect(ps []Prospect, id string) (Prospect, []Prospect, bool) {
+	for i, p := range ps {
+		if p.ID == id {
+			rest := append(append([]Prospect(nil), ps[:i]...), ps[i+1:]...)
+			return p, rest, true
+		}
+	}
+	return Prospect{}, ps, false
 }

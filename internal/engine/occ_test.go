@@ -192,6 +192,71 @@ func TestApplyAppraisalLedgerCapDropsOldest(t *testing.T) {
 	}
 }
 
+// prospectState builds a state holding one ledger entry with the given desirability.
+func prospectState(t *testing.T, cfg Config, des float64) State {
+	t.Helper()
+	s, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{Consequence: &ConsequenceAppraisal{
+		Desirability: des, Likelihood: f64(0.5), Label: "x"}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("setup prospect: %v", err)
+	}
+	return s
+}
+
+func TestApplyAppraisalResolve(t *testing.T) {
+	// gains.prospect = 0.8; resolution magnitude = 0.8 * |des|
+	tests := []struct {
+		des     float64
+		outcome string
+		axis    string
+		want    float64
+	}{
+		{0.6, "confirmed", "satisfaction", 0.48},
+		{0.6, "disconfirmed", "disappointment", 0.48},
+		{-0.6, "confirmed", "fears-confirmed", 0.48},
+		{-0.6, "disconfirmed", "relief", 0.48},
+	}
+	for _, tt := range tests {
+		cfg := occCfg(t)
+		s := prospectState(t, cfg, tt.des)
+		s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: tt.outcome}}}, cfg, occNow)
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if !almostEqual(s.Axes[tt.axis], tt.want) {
+			t.Errorf("%s(%v,%s) = %v, want %v", tt.axis, tt.des, tt.outcome, s.Axes[tt.axis], tt.want)
+		}
+		if len(s.Prospects) != 0 {
+			t.Errorf("ledger should be empty after resolve, got %+v", s.Prospects)
+		}
+	}
+}
+
+func TestApplyAppraisalResolveDropped(t *testing.T) {
+	cfg := occCfg(t)
+	s := prospectState(t, cfg, 0.6)
+	hopeBefore := s.Axes["hope"]
+	s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: "dropped"}}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(s.Prospects) != 0 {
+		t.Errorf("ledger should be empty after drop")
+	}
+	// dropped fires no emotion: only the pre-existing hope remains.
+	if !almostEqual(s.Axes["hope"], hopeBefore) || !almostEqual(s.Axes["satisfaction"], 0) {
+		t.Errorf("dropped should not fire emotions: %+v", s.Axes)
+	}
+}
+
+func TestApplyAppraisalResolveUnknownID(t *testing.T) {
+	cfg := occCfg(t)
+	_, err := ApplyAppraisal(NewState(cfg, occNow), Appraisal{Resolve: []Resolution{{ID: "p9", Outcome: "confirmed"}}}, cfg, occNow)
+	if err == nil || !strings.Contains(err.Error(), "unknown prospect") {
+		t.Fatalf("want unknown prospect error, got %v", err)
+	}
+}
+
 func TestAppraisalValidate(t *testing.T) {
 	tests := []struct {
 		name    string
