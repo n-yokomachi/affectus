@@ -91,3 +91,23 @@ func TestInitUnknownModel(t *testing.T) {
 		t.Errorf("error should list valid models, got: %v", err)
 	}
 }
+
+func TestInitBarrettModel(t *testing.T) {
+	dir := t.TempDir()
+	env := Env{
+		ConfigPath: filepath.Join(dir, "config.yaml"),
+		StatePath:  filepath.Join(dir, "state.json"),
+		Now:        func() time.Time { return time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC) },
+		Stdout:     &bytes.Buffer{},
+	}
+	if err := Init(env, "barrett", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	cfg, err := engine.LoadConfig(env.ConfigPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.Model != "barrett" || cfg.Barrett == nil {
+		t.Fatalf("init wrote wrong config: model=%q", cfg.Model)
+	}
+}

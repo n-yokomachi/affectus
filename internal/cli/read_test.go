@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -119,6 +120,35 @@ func TestShowJSONFormatPlutchikNoProspects(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "prospects") {
 		t.Errorf("plutchik json output must not contain prospects: %s", out.String())
+	}
+}
+
+func TestShowJSONBarrettIncludesConceptsAndCultureMap(t *testing.T) {
+	env := barrettEnv(t)
+	if err := Remember(env, `{"label":"m1","vector":`+fullVectorJSON(t, map[string]float64{"valence": 0.4})+`}`); err != nil {
+		t.Fatalf("Remember: %v", err)
+	}
+	env.Stdout = &bytes.Buffer{}
+	if err := Show(env, "json"); err != nil {
+		t.Fatalf("Show: %v", err)
+	}
+	out := env.Stdout.(*bytes.Buffer).String()
+	for _, want := range []string{`"concepts"`, `"m1"`, `"vector"`, `"created_at"`, `"culture_map"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("json show missing %s: %s", want, out)
+		}
+	}
+}
+
+func TestShowJSONBarrettEmptyStoreIsArray(t *testing.T) {
+	env := barrettEnv(t)
+	env.Stdout = &bytes.Buffer{}
+	if err := Show(env, "json"); err != nil {
+		t.Fatalf("Show: %v", err)
+	}
+	out := env.Stdout.(*bytes.Buffer).String()
+	if !strings.Contains(out, `"concepts": []`) {
+		t.Errorf("empty store must be [] not null: %s", out)
 	}
 }
 

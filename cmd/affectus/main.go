@@ -11,7 +11,7 @@ import (
 	"github.com/n-yokomachi/affectus/internal/cli"
 )
 
-const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|appraise|tick|reset|mcp|viz> [args]"
+const usage = "usage: affectus [--config P] [--state P] <init|show|get|feel|appraise|recall|remember|tick|reset|mcp|viz> [args]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -47,7 +47,7 @@ func run(args []string) error {
 	case "init":
 		ifs := flag.NewFlagSet("init", flag.ContinueOnError)
 		force := ifs.Bool("force", false, "overwrite existing files")
-		model := ifs.String("model", "plutchik", "emotion model: plutchik|russell|occ")
+		model := ifs.String("model", "plutchik", "emotion model: plutchik|russell|occ|barrett")
 		if err := ifs.Parse(cmdArgs); err != nil {
 			return err
 		}

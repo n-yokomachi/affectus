@@ -62,6 +62,18 @@ func Show(env Env, format string) error {
 			}
 			out["prospects"] = prospects
 		}
+		if cfg.Model == "barrett" {
+			// Full entries (vector, timestamps) — the developer/tooling view,
+			// unlike the slim text format. Normalize nil to [].
+			concepts := s.Concepts
+			if concepts == nil {
+				concepts = []engine.Concept{}
+			}
+			out["concepts"] = concepts
+			if cfg.Barrett != nil {
+				out["culture_map"] = cfg.Barrett.CultureMap
+			}
+		}
 		enc := json.NewEncoder(env.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(out)
