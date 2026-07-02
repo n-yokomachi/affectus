@@ -157,6 +157,77 @@ func RecallConcepts(s State, query []float64, cfg Config, now time.Time) (State,
 	return s, recalled, nil
 }
 
+// RememberConcept appends one experience to the concept store: the retrieval
+// vector the agent reported plus a snapshot of the current core affect
+// (importance derives from it deterministically — no extra self-report).
+// LastRecalled starts at CreatedAt. Over max_concepts, the lowest
+// recency+importance entries are forgotten first.
+func RememberConcept(s State, label string, vector []float64, cfg Config, now time.Time) (State, error) {
+	if cfg.Model != "barrett" || cfg.Barrett == nil {
+		return State{}, fmt.Errorf("remember requires a barrett-model config (got model %q)", cfg.Model)
+	}
+	b := cfg.Barrett
+	if label == "" {
+		return State{}, fmt.Errorf("remember: label is required")
+	}
+	if len(vector) != len(b.VectorDims) {
+		return State{}, fmt.Errorf("vector has %d dimensions, config defines %d", len(vector), len(b.VectorDims))
+	}
+	v, a := s.Axes["valence"], s.Axes["arousal"]
+	s.ConceptSeq++
+	c := Concept{
+		ID:           fmt.Sprintf("c%d", s.ConceptSeq),
+		Label:        label,
+		Vector:       vector,
+		Valence:      v,
+		Arousal:      a,
+		Importance:   conceptImportance(v, a, cfg),
+		CreatedAt:    now,
+		LastRecalled: now,
+	}
+	concepts := append(append([]Concept(nil), s.Concepts...), c)
+	if len(concepts) > b.MaxConcepts {
+		concepts = evictConcepts(concepts, len(concepts)-b.MaxConcepts, b, now)
+	}
+	s.Concepts = concepts
+	return s, nil
+}
+
+// evictConcepts forgets nEvict entries with the lowest recency+importance
+// score (relevance is undefined without a query). Old and trivial
+// experiences go first; ties keep ledger order, so the earlier entry is
+// evicted. Forgotten entries leave the state entirely — the engine treats
+// them as never experienced (known MVP simplification).
+func evictConcepts(cs []Concept, nEvict int, b *BarrettConfig, now time.Time) []Concept {
+	n := len(cs)
+	rec := make([]float64, n)
+	imp := make([]float64, n)
+	for i, c := range cs {
+		rec[i] = recencyWeight(c, b, now)
+		imp[i] = c.Importance
+	}
+	rec, imp = minMaxNorm(rec), minMaxNorm(imp)
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
+	score := func(i int) float64 {
+		return b.Weights.Recency*rec[i] + b.Weights.Importance*imp[i]
+	}
+	sort.SliceStable(order, func(x, y int) bool { return score(order[x]) < score(order[y]) })
+	drop := make(map[int]bool, nEvict)
+	for _, idx := range order[:nEvict] {
+		drop[idx] = true
+	}
+	out := make([]Concept, 0, n-nEvict)
+	for i, c := range cs {
+		if !drop[i] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // recencyWeight is the half-life decay of an entry's retrieval weight since
 // it was last recalled. It decays search visibility only — stored values
 // never drift toward a baseline.

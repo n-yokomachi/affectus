@@ -254,3 +254,77 @@ func TestRecallConceptsStoreOffAndEdges(t *testing.T) {
 		t.Fatalf("stale vector must not error: %v", err)
 	}
 }
+
+func TestRememberConceptAppendsWithSnapshot(t *testing.T) {
+	cfg := barrettCfg(t)
+	s := NewState(cfg, barrettNow)
+	s.Axes["valence"] = -0.6
+	s.Axes["arousal"] = 0.9
+	vec, _ := BarrettVector(namedVec(t, cfg, 0.1, map[string]float64{"anger-face": 0.8}), cfg)
+	s2, err := RememberConcept(s, "frustration", vec, cfg, barrettNow)
+	if err != nil {
+		t.Fatalf("RememberConcept: %v", err)
+	}
+	if len(s2.Concepts) != 1 || s2.ConceptSeq != 1 {
+		t.Fatalf("want 1 concept seq=1, got n=%d seq=%d", len(s2.Concepts), s2.ConceptSeq)
+	}
+	c := s2.Concepts[0]
+	if c.ID != "c1" || c.Label != "frustration" {
+		t.Errorf("id/label = %s/%s, want c1/frustration", c.ID, c.Label)
+	}
+	if c.Valence != -0.6 || c.Arousal != 0.9 {
+		t.Errorf("snapshot = (%v, %v), want (-0.6, 0.9)", c.Valence, c.Arousal)
+	}
+	if want := conceptImportance(-0.6, 0.9, cfg); !almostEqual(c.Importance, want) {
+		t.Errorf("importance = %v, want %v", c.Importance, want)
+	}
+	if !c.CreatedAt.Equal(barrettNow) || !c.LastRecalled.Equal(barrettNow) {
+		t.Errorf("timestamps: created=%v lastRecalled=%v, want both %v", c.CreatedAt, c.LastRecalled, barrettNow)
+	}
+}
+
+func TestRememberConceptEvictsLowestScore(t *testing.T) {
+	cfg := barrettCfg(t)
+	cfg.Barrett.MaxConcepts = 2
+	s := NewState(cfg, barrettNow)
+	// c1: old AND unimportant -> lowest recency+importance, must be evicted.
+	old := unitConcept(t, cfg, "c1", "novelty", barrettNow.Add(-72*time.Hour))
+	old.Importance = 0.05
+	// c2: old but very important -> survives.
+	keeper := unitConcept(t, cfg, "c2", "fairness", barrettNow.Add(-72*time.Hour))
+	keeper.Importance = 0.95
+	s.Concepts = []Concept{old, keeper}
+	s.ConceptSeq = 2
+
+	vec, _ := BarrettVector(namedVec(t, cfg, 0.2, nil), cfg)
+	s2, err := RememberConcept(s, "fresh", vec, cfg, barrettNow)
+	if err != nil {
+		t.Fatalf("RememberConcept: %v", err)
+	}
+	if len(s2.Concepts) != 2 {
+		t.Fatalf("want 2 concepts after eviction, got %d", len(s2.Concepts))
+	}
+	ids := map[string]bool{}
+	for _, c := range s2.Concepts {
+		ids[c.ID] = true
+	}
+	if ids["c1"] || !ids["c2"] || !ids["c3"] {
+		t.Errorf("want c1 evicted, c2+c3 kept; got %v", ids)
+	}
+}
+
+func TestRememberConceptValidation(t *testing.T) {
+	cfg := barrettCfg(t)
+	s := NewState(cfg, barrettNow)
+	vec, _ := BarrettVector(namedVec(t, cfg, 0, nil), cfg)
+	if _, err := RememberConcept(s, "", vec, cfg, barrettNow); err == nil || !strings.Contains(err.Error(), "label") {
+		t.Errorf("want label-required error, got %v", err)
+	}
+	if _, err := RememberConcept(s, "x", []float64{1}, cfg, barrettNow); err == nil {
+		t.Error("want dimension-count error")
+	}
+	pl, _ := DefaultConfig()
+	if _, err := RememberConcept(NewState(pl, barrettNow), "x", vec, pl, barrettNow); err == nil {
+		t.Error("want barrett-model error")
+	}
+}
