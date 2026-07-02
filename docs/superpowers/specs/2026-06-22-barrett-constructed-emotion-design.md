@@ -49,7 +49,7 @@ type Concept struct {
     Arousal      float64   `json:"arousal"`
     Importance   float64   `json:"importance"`    // derived from core-affect intensity, [0,1]
     CreatedAt    time.Time `json:"created_at"`
-    LastRecalled time.Time `json:"last_recalled"` // recency basis; bumped on recall
+    LastRecalled time.Time `json:"last_recalled"` // recency basis; init = CreatedAt, bumped on recall
 }
 
 // State additions (omitempty keeps other models byte-identical):
@@ -69,14 +69,14 @@ type Concept struct {
 - `relevance(e)` = 既定では `q` と `e.Vector` のコサイン類似度 `cos ∈ [-1,1]` を `(cos + 1) / 2` で [0,1] に写像。`distance` config が cosine 以外を指すときはその距離を [0,1] の類似度に写像する。いずれかが零ベクトルのときは relevance=0。
 - `recency(e)` = `0.5 ^ (age / concept_halflife_minutes)`、`age = now - e.LastRecalled`（分）。既存 half-life 哲学を流用。**減衰するのは検索の重みであり、ベクトル値・core affect スナップショットは不変**（概念は baseline に向かわない）。
 - `importance(e)` = 書込時に core affect 強度から導出済みの固定値（次節）。
-- `score(e)` = `w_rel·relevance + w_rec·recency + w_imp·importance`。各成分は候補集合内で min-max 正規化してから加重（Park 型）。重み既定 1/1/1（config）。
+- `score(e)` = `w_rel·relevance + w_rec·recency + w_imp·importance`。各成分は候補集合内で min-max 正規化してから加重（Park 型）。縮退ケース（候補全件で max=min の成分）はその成分を全候補 0 として扱う（全員同値なので順位に影響しない）。重み既定 1/1/1（config）。
 - 上位 `recall_k` 件を返す。返したエントリの `LastRecalled` を `now` に更新（Park 型の想起強化）。よって recall は state を変更する＝lock を取る書き込み操作。
 
-`recall_k: 0` は store-off モード（常に空を返す）＝eval の対照群スイッチ。
+`recall_k: 0` は store-off モード＝eval の対照群スイッチ。`recalled` は常に `[]` だが axes と culture_map は通常どおり返し、`LastRecalled` は更新しない（実質 read-only）。
 
 #### importance の導出
 
-`importance` ∈ [0,1] は、経験の core affect が中立点 `(valence=0, arousal=baseline)` からどれだけ離れているかのユークリッド距離を、軸レンジから定まる最大距離で正規化して得る（中立点から遠い＝強い情動経験ほど高い）。激しい経験ほど忘れにくく、想起されやすい。正確な正規化定数は config の axis range/baseline から実装側で導出する。
+`importance` ∈ [0,1] は、経験の core affect スナップショットが中立点（valence・arousal **各軸の baseline**）からどれだけ離れているかのユークリッド距離を、最大距離（中立点から各軸 range の遠い側の端までの距離のノルム）で割って得る（中立点から遠い＝強い情動経験ほど高い）。激しい経験ほど忘れにくく、想起されやすい。
 
 #### 忘却（eviction）
 
@@ -90,12 +90,12 @@ type Concept struct {
 `feel`・`tick`・`show` は既存・汎用のまま。barrett 専用に `recall` と `remember` を追加。1ターンの流れ：
 
 ```
-① barrett recall '<14属性JSON>'
+① affectus recall '<14属性JSON>'
      → {axes(core affect), recalled:[上位K経験], culture_map}
      （副作用: 返した経験の LastRecalled を更新。lock取得）
        ↓ LLM が「以前こう感じた時は X と構えた」を読んで構成・応答
-② barrett feel '<core affectデルタ>'      （既存・汎用。valence/arousal 更新）
-③ barrett remember '<{label, vector}>'
+② affectus feel '<core affectデルタ>'     （既存・汎用。valence/arousal 更新）
+③ affectus remember '<{label, vector}>'
      （エンジンが post-feel の valence/arousal をスナップショット、importance導出、
       id採番、append、max_concepts上限適用。lock取得）
 ```
@@ -104,9 +104,10 @@ type Concept struct {
 
 - **recall は新コマンド**（`show` は read-only を維持。recall は `LastRecalled` を更新するため別立て）。
 - **feel と remember を分離**。feel を汎用のまま残すことで、eval の store-off 対照群が素の feel で動く。順序は feel→remember を規約とし、remember は更新後 core affect をスナップショットする。
-- **`show`**（既存・read-only）は core affect ＋ 概念ストア全体を返す（`RenderOCC` が axes+prospects を返すのと同型のレンダラ `RenderBarrett`）。検査・viz 用。ランキングはしない。
+- **`show`**（既存・read-only）は core affect ＋ 概念ストア全体 ＋ culture_map を返す（`RenderOCC` が axes+prospects を返すのと同型のレンダラ `RenderBarrett`。culture_map の echo はスコープ確定事項「recall/show 出力に echo」に対応）。検査・viz 用。ランキングも `LastRecalled` 更新もしない。
 - **`tick`** は core affect のみ減衰。概念の recency は `LastRecalled` から都度算出するので tick 変更は不要。
-- バリデーション：recall/remember の vector 長は `len(vector_dims)` に一致必須（属性スキーマ規約）。要素ごとの値域は v1 では強制しない（cosine は尺度に寛容なため。将来 vector_dims に値域を付すのは拡張）。`label` 空・不正 JSON はエラー。`barrett` 以外のモデルで recall/remember はエラー。
+- **入力フォーマット**：recall のクエリも remember の `vector` も、`vector_dims` の全次元名をキーに持つ JSON オブジェクト（`feel` と同じ named-key 形式・順序非依存）。エンジンが `vector_dims` 順の `[]float64` に写像して保存・比較する。欠落・未知の次元名はエラー。将来の embedding 規約では named-key でなく生配列を受ける（規約変更のみ、エンジンの検索・忘却ロジックは不変）。
+- バリデーション：要素ごとの値域は v1 では強制しない（cosine は尺度に寛容なため。将来 vector_dims に値域を付すのは拡張）。`label` 空・不正 JSON はエラー。`barrett` 以外のモデルで recall/remember はエラー。
 
 ### 5. config（model=barrett）
 
@@ -141,12 +142,15 @@ barrett:
   concept_halflife_minutes: 10080          # recency減衰（例: 7日）
   weights: {relevance: 1.0, recency: 1.0, importance: 1.0}
   distance: cosine
-  culture_map: |
-    （カテゴリ-語彙の最小マップ。差し替え→出力変化→応答変化で防衛線成立）
+  culture_map: |                           # 差し替え→出力変化→応答変化（防衛線第一節）
+    高覚醒・不快: 怒り / 苛立ち / 焦り
+    低覚醒・不快: 悲しみ / 侘しさ / 気だるさ
+    高覚醒・快: 歓喜 / 昂揚 / わくわく
+    低覚醒・快: 安らぎ / 満足 / 懐かしさ
 fragment_file: ""
 ```
 
-Validate（`Config.Validate` を拡張）：`model: barrett` は barrett セクション必須／core affect 2軸（valence・arousal）必須／`vector_dims` 非空／`recall_k`・`max_concepts`・`concept_halflife_minutes` 正／weights 非負／`distance` は既知の値。`barrett` 以外のモデルでは既存挙動を一切変えない。
+Validate（`Config.Validate` を拡張）：`model: barrett` は barrett セクション必須／core affect 2軸（valence・arousal）必須／`vector_dims` 非空／`recall_k` は **0 以上**（0 は store-off モード、§3・§7）／`max_concepts`・`concept_halflife_minutes` 正／weights 非負／`distance` は既知の値（**省略時は cosine 既定**）。`barrett` 以外のモデルでは既存挙動を一切変えない。
 
 ### 6. viz
 
@@ -159,16 +163,17 @@ Validate（`Config.Validate` を拡張）：`model: barrett` は barrett セク�
 
 `examples/strands-eval` の N 反復ハイブリッドを流用：
 
-- 対照軸＝**store on/off**：barrett（recall が経験を返す）vs barrett-store-off（`recall_k: 0` 相当で recall が空＝core affect のみ）。「概念ストアが応答の質感を変えるか」を測る。
+- 対照軸＝**store on/off**：barrett（recall が経験を返す）vs barrett-store-off（`recall_k: 0` で `recalled` が常に空＝core affect のみ）。「概念ストアが応答の質感を変えるか」を測る。
 - 性格 × store on/off × N 反復で既存リグに乗せる。Comprehend 極性と内部状態の両チャネルで比較。
 - **異文化対照 eval（マップ差し替え実験）は MVP スコープ外**。配線だけ残し実験は後続。
 
 ### 8. テスト（既存 TDD パターン・各 `_test.go` に倣う）
 
 - ベクトル距離 / cosine（ゼロベクトル含む）
-- 検索ランキング（relevance+recency+importance の min-max 正規化・top-K・recall_k=0）
+- 検索ランキング（relevance+recency+importance の min-max 正規化・縮退ケース・top-K・recall_k=0）
 - importance 導出（中立点からの距離正規化）
 - recall の `LastRecalled` 更新
+- remember（`LastRecalled`=`CreatedAt` 初期化・post-feel スナップショット・ID 採番・named-key→配列写像）
 - 忘却（上限超過時に最低スコア退去、recency·importance のみで判定）
 - 概念ストア render（`RenderBarrett`）
 - config validation（barrett 必須要件・他モデル不変）
@@ -196,6 +201,7 @@ Validate（`Config.Validate` を拡張）：`model: barrett` は barrett セク�
 - 「構成の質感」の数値指標（Plutchik/Russell より格段に難しい）。
 - 退去経験の心理学的により正確な扱い。
 - embedding 規約の本格設計（state 肥大対策・申告プロトコル）。
+- MCP surface（emotion_recall / emotion_remember 相当）の追加要否。MVP は CLI/viz のみ（OCC で確立した「サーフェス毎の露出差は意図として文書化する」方針に沿って後続判断）。
 
 ## 参考
 
