@@ -1,0 +1,27 @@
+# barrett.yaml との差分は recall_k: 0 のみ（store-off 対照群:
+# recall が常に recalled:[] を返し、概念ストアが応答に寄与しない）。
+version: 1
+model: barrett
+clamp:       { min: -1.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min:  0.0, max: 1.0 } }
+
+barrett:
+  vector_dims: [valence, arousal, happy-face, anger-face, sad-face, fear-face,
+                surprise-face, disgust-face, control, fairness, self-relativity,
+                other-relativity, expectedness, novelty]
+  recall_k: 0
+  max_concepts: 200
+  concept_halflife_minutes: 10080
+  weights: { relevance: 1.0, recency: 1.0, importance: 1.0 }
+  distance: cosine
+  culture_map: |
+    高覚醒・不快: 怒り / 苛立ち / 焦り
+    低覚醒・不快: 悲しみ / 侘しさ / 気だるさ
+    高覚醒・快: 歓喜 / 昂揚 / わくわく
+    低覚醒・快: 安らぎ / 満足 / 懐かしさ
+
+fragment_file: ""

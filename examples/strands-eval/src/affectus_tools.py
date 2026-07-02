@@ -37,6 +37,34 @@ def affectus_feel(
     return result.stdout.strip()
 
 
+def affectus_recall(
+    query: Mapping[str, float],
+    state_path: str,
+    config_path: str | None = None,
+) -> str:
+    """Retrieve past experiences similar to the 14-attribute query (barrett)."""
+    cmd = _common_args(state_path, config_path) + ["recall", json.dumps(dict(query))]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"affectus recall failed: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def affectus_remember(
+    label: str,
+    vector: Mapping[str, float],
+    state_path: str,
+    config_path: str | None = None,
+) -> str:
+    """Store this turn's constructed emotion in the concept store (barrett)."""
+    payload = json.dumps({"label": label, "vector": dict(vector)})
+    cmd = _common_args(state_path, config_path) + ["remember", payload]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"affectus remember failed: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
 def affectus_reset(state_path: str, config_path: str | None = None) -> None:
     """Reset the state file to all-zero baseline."""
     cmd = _common_args(state_path, config_path) + ["reset"]
