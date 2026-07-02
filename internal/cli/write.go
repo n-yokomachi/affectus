@@ -139,3 +139,53 @@ func Appraise(env Env, appraisalJSON string) error {
 	fmt.Fprintln(env.Stdout, rendered)
 	return nil
 }
+
+// rememberPayload is the remember command input: the category the LLM
+// constructed this turn plus the named-key retrieval vector.
+type rememberPayload struct {
+	Label  string             `json:"label"`
+	Vector map[string]float64 `json:"vector"`
+}
+
+// Remember stores one experience in the barrett concept store: it decays to
+// now, snapshots the current core affect, appends the entry (evicting over
+// max_concepts), persists, and prints the rendered line. Unknown fields are
+// rejected so LLM typos fail loudly.
+func Remember(env Env, payloadJSON string) error {
+	dec := json.NewDecoder(strings.NewReader(payloadJSON))
+	dec.DisallowUnknownFields()
+	var p rememberPayload
+	if err := dec.Decode(&p); err != nil {
+		return fmt.Errorf("invalid remember JSON: %w", err)
+	}
+	cfg, err := loadConfig(env)
+	if err != nil {
+		return err
+	}
+	vec, err := engine.BarrettVector(p.Vector, cfg)
+	if err != nil {
+		return err
+	}
+	var rendered string
+	err = engine.WithLock(env.StatePath, func() error {
+		s, err := engine.LoadState(env.StatePath, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		s = engine.Decay(s, cfg, env.Now())
+		s, err = engine.RememberConcept(s, p.Label, vec, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		if err := engine.SaveState(env.StatePath, s); err != nil {
+			return err
+		}
+		rendered = renderLine(cfg, s)
+		return writeFragment(cfg, s)
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(env.Stdout, rendered)
+	return nil
+}

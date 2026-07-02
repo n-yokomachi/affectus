@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/n-yokomachi/affectus/internal/engine"
 )
 
 func TestFeelAppliesDeltas(t *testing.T) {
@@ -215,6 +219,75 @@ func TestAppraiseRejectsBadJSON(t *testing.T) {
 	// nested unknown field must also be rejected.
 	if err := Appraise(env, `{"consequence":{"desirabillity":0.5}}`); err == nil {
 		t.Fatal("nested unknown field should error")
+	}
+}
+
+func barrettEnv(t *testing.T) Env {
+	t.Helper()
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfgPath, engine.Models["barrett"], 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return Env{
+		ConfigPath: cfgPath,
+		StatePath:  filepath.Join(dir, "state.json"),
+		Now:        func() time.Time { return time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC) },
+		Stdout:     &bytes.Buffer{},
+		Stderr:     &bytes.Buffer{},
+	}
+}
+
+// fullVectorJSON returns a named-key vector JSON with all 14 dims.
+func fullVectorJSON(t *testing.T, overrides map[string]float64) string {
+	t.Helper()
+	cfg, err := engine.ParseConfig(engine.Models["barrett"])
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	m := map[string]float64{}
+	for _, d := range cfg.Barrett.VectorDims {
+		m[d] = 0
+	}
+	for k, v := range overrides {
+		m[k] = v
+	}
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
+func TestRememberPersistsConcept(t *testing.T) {
+	env := barrettEnv(t)
+	payload := `{"label":"quiet joy","vector":` + fullVectorJSON(t, map[string]float64{"valence": 0.6, "happy-face": 0.8}) + `}`
+	if err := Remember(env, payload); err != nil {
+		t.Fatalf("Remember: %v", err)
+	}
+	out := env.Stdout.(*bytes.Buffer).String()
+	if !strings.Contains(out, `"concepts":[{"id":"c1","label":"quiet joy"`) {
+		t.Errorf("output missing stored concept: %s", out)
+	}
+	cfg, _ := engine.LoadConfig(env.ConfigPath)
+	s, err := engine.LoadState(env.StatePath, cfg, env.Now())
+	if err != nil {
+		t.Fatalf("LoadState: %v", err)
+	}
+	if len(s.Concepts) != 1 || s.Concepts[0].Label != "quiet joy" {
+		t.Fatalf("state not persisted: %+v", s.Concepts)
+	}
+}
+
+func TestRememberRejectsBadInput(t *testing.T) {
+	env := barrettEnv(t)
+	cases := []string{
+		`{"label":"x","vector":{"valence":1},"extra":1}`, // unknown field
+		`{"label":"x","vector":{"valence":1}}`,           // missing dims
+		`{"vector":` + fullVectorJSON(t, nil) + `}`,      // no label
+		`not json`,
+	}
+	for _, c := range cases {
+		if err := Remember(env, c); err == nil {
+			t.Errorf("want error for %s", c)
+		}
 	}
 }
 
