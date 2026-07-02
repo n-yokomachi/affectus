@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,6 +126,73 @@ func TestDecayAndApplyPreserveProspects(t *testing.T) {
 	}
 	if s.ProspectSeq != 1 || len(s.Prospects) != 1 {
 		t.Fatalf("ApplyDeltas dropped prospects: %+v", s)
+	}
+}
+
+func TestStateConceptsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	cfg, err := ParseConfig(Models["barrett"])
+	if err != nil {
+		t.Fatalf("parse config: %v", err)
+	}
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	s := NewState(cfg, now)
+	s.ConceptSeq = 2
+	s.Concepts = []Concept{{
+		ID: "c2", Label: "frustration",
+		Vector:  []float64{0.1, 0.9, 0, 0.5, 0, 0, 0, 0, 0.2, 0.1, 0.8, 0.3, 0.4, 0.6},
+		Valence: -0.4, Arousal: 0.7, Importance: 0.55,
+		CreatedAt: now, LastRecalled: now,
+	}}
+	if err := SaveState(path, s); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	got, err := LoadState(path, cfg, now)
+	if err != nil {
+		t.Fatalf("LoadState: %v", err)
+	}
+	if got.ConceptSeq != 2 || len(got.Concepts) != 1 {
+		t.Fatalf("round trip lost concepts: seq=%d n=%d", got.ConceptSeq, len(got.Concepts))
+	}
+	c := got.Concepts[0]
+	if c.ID != "c2" || c.Label != "frustration" || len(c.Vector) != 14 {
+		t.Errorf("concept fields lost: %+v", c)
+	}
+}
+
+func TestStateWithoutConceptsOmitsKeys(t *testing.T) {
+	cfg, _ := DefaultConfig() // plutchik
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	b, err := json.Marshal(NewState(cfg, now))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), "concept") {
+		t.Errorf("plutchik state must not contain concept keys, got %s", b)
+	}
+}
+
+func TestDecayAndApplyPreserveConcepts(t *testing.T) {
+	cfg, err := ParseConfig(Models["barrett"])
+	if err != nil {
+		t.Fatalf("parse config: %v", err)
+	}
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	s := NewState(cfg, now)
+	s.ConceptSeq = 1
+	s.Concepts = []Concept{{ID: "c1", Label: "calm", Vector: make([]float64, 14), CreatedAt: now, LastRecalled: now}}
+
+	d := Decay(s, cfg, now.Add(30*time.Minute))
+	if d.ConceptSeq != 1 || len(d.Concepts) != 1 {
+		t.Fatalf("Decay dropped concepts: seq=%d n=%d", d.ConceptSeq, len(d.Concepts))
+	}
+	a, err := ApplyDeltas(d, map[string]float64{"valence": 0.2}, cfg)
+	if err != nil {
+		t.Fatalf("ApplyDeltas: %v", err)
+	}
+	if a.ConceptSeq != 1 || len(a.Concepts) != 1 {
+		t.Fatalf("ApplyDeltas dropped concepts: seq=%d n=%d", a.ConceptSeq, len(a.Concepts))
 	}
 }
 

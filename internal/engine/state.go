@@ -21,6 +21,26 @@ type Prospect struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// Concept is one stored emotional experience (barrett model): the retrieval
+// vector the agent reported, the core-affect snapshot at write time, and a
+// derived importance. The engine persists, searches, and forgets these;
+// categorization (what they mean now) is the LLM's job.
+type Concept struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Vector is the retrieval representation in cfg.Barrett.VectorDims
+	// order. v1 = the 14-attribute schema; a future embedding convention
+	// changes only what the agent reports, not this storage.
+	Vector     []float64 `json:"vector"`
+	Valence    float64   `json:"valence"`
+	Arousal    float64   `json:"arousal"`
+	Importance float64   `json:"importance"`
+	CreatedAt  time.Time `json:"created_at"`
+	// LastRecalled is the recency basis: initialized to CreatedAt and
+	// bumped to now each time recall returns this entry.
+	LastRecalled time.Time `json:"last_recalled"`
+}
+
 // State is the persisted emotion vector.
 type State struct {
 	Version   int                `json:"version"`
@@ -30,6 +50,9 @@ type State struct {
 	// plutchik/russell state files byte-identical to before.
 	ProspectSeq int        `json:"prospect_seq,omitempty"`
 	Prospects   []Prospect `json:"prospects,omitempty"`
+	// ConceptSeq and Concepts are only used by the barrett model.
+	ConceptSeq int       `json:"concept_seq,omitempty"`
+	Concepts   []Concept `json:"concepts,omitempty"`
 }
 
 // NewState returns a fresh state with every axis at its configured baseline.
