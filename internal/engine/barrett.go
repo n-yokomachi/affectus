@@ -3,6 +3,8 @@ package engine
 import (
 	"fmt"
 	"math"
+	"sort"
+	"time"
 )
 
 // BarrettVector maps a named-key vector report (the recall/remember input
@@ -103,4 +105,65 @@ func minMaxNorm(raw []float64) []float64 {
 		out[i] = (v - lo) / (hi - lo)
 	}
 	return out
+}
+
+// RecallConcepts deterministically retrieves the top-K stored experiences
+// for a query vector and bumps their LastRecalled to now (Park-style
+// retrieval reinforcement). Score per entry = weighted sum of min-max
+// normalized relevance (cosine to the query), recency (half-life decay of
+// time since LastRecalled), and importance (fixed at write time). Ties keep
+// ledger order (stable sort). RecallK = 0 is the store-off mode: nothing is
+// returned and nothing is bumped.
+func RecallConcepts(s State, query []float64, cfg Config, now time.Time) (State, []Concept, error) {
+	if cfg.Model != "barrett" || cfg.Barrett == nil {
+		return State{}, nil, fmt.Errorf("recall requires a barrett-model config (got model %q)", cfg.Model)
+	}
+	b := cfg.Barrett
+	if len(query) != len(b.VectorDims) {
+		return State{}, nil, fmt.Errorf("query vector has %d dimensions, config defines %d", len(query), len(b.VectorDims))
+	}
+	if b.RecallK == 0 || len(s.Concepts) == 0 {
+		return s, nil, nil
+	}
+	n := len(s.Concepts)
+	rel := make([]float64, n)
+	rec := make([]float64, n)
+	imp := make([]float64, n)
+	for i, c := range s.Concepts {
+		rel[i] = cosineRelevance(query, c.Vector)
+		rec[i] = recencyWeight(c, b, now)
+		imp[i] = c.Importance
+	}
+	rel, rec, imp = minMaxNorm(rel), minMaxNorm(rec), minMaxNorm(imp)
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
+	score := func(i int) float64 {
+		return b.Weights.Relevance*rel[i] + b.Weights.Recency*rec[i] + b.Weights.Importance*imp[i]
+	}
+	sort.SliceStable(order, func(x, y int) bool { return score(order[x]) > score(order[y]) })
+	k := b.RecallK
+	if k > n {
+		k = n
+	}
+	concepts := append([]Concept(nil), s.Concepts...)
+	recalled := make([]Concept, 0, k)
+	for _, idx := range order[:k] {
+		concepts[idx].LastRecalled = now
+		recalled = append(recalled, concepts[idx])
+	}
+	s.Concepts = concepts
+	return s, recalled, nil
+}
+
+// recencyWeight is the half-life decay of an entry's retrieval weight since
+// it was last recalled. It decays search visibility only — stored values
+// never drift toward a baseline.
+func recencyWeight(c Concept, b *BarrettConfig, now time.Time) float64 {
+	age := now.Sub(c.LastRecalled).Minutes()
+	if age < 0 {
+		age = 0
+	}
+	return math.Pow(0.5, age/b.HalflifeMinutes)
 }
