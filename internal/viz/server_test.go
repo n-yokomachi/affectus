@@ -181,10 +181,40 @@ func TestStateJSONBarrettIncludesConcepts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stateJSON: %v", err)
 	}
-	for _, want := range []string{`"model": "barrett"`, `"concepts"`, `"quiet joy"`, `"importance"`, `"culture_map"`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("state response missing %s:\n%s", want, b)
-		}
+	var resp stateResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.Model != "barrett" {
+		t.Errorf("model = %q, want barrett", resp.Model)
+	}
+	if len(resp.Concepts) != 1 {
+		t.Fatalf("got %d concepts, want 1", len(resp.Concepts))
+	}
+	c := resp.Concepts[0]
+	if c.ID != "c1" {
+		t.Errorf("concept ID = %q, want c1", c.ID)
+	}
+	if c.Label != "quiet joy" {
+		t.Errorf("concept Label = %q, want %q", c.Label, "quiet joy")
+	}
+	if c.Valence != 0.5 {
+		t.Errorf("concept Valence = %v, want 0.5", c.Valence)
+	}
+	if c.Arousal != 0.4 {
+		t.Errorf("concept Arousal = %v, want 0.4", c.Arousal)
+	}
+	if c.Importance != 0.42 {
+		t.Errorf("concept Importance = %v, want 0.42", c.Importance)
+	}
+	if !c.CreatedAt.Equal(now) {
+		t.Errorf("concept CreatedAt = %v, want %v", c.CreatedAt, now)
+	}
+	if !c.LastRecalled.Equal(now) {
+		t.Errorf("concept LastRecalled = %v, want %v", c.LastRecalled, now)
+	}
+	if resp.CultureMap == "" {
+		t.Error("CultureMap is empty, want non-empty (from embedded barrett default config)")
 	}
 }
 
