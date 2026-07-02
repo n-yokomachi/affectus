@@ -47,12 +47,17 @@ func loadConfig(env Env) (engine.Config, error) {
 }
 
 // renderLine renders the one-line state JSON for the model: occ includes the
-// prospect ledger, other models are the plain axes object.
+// prospect ledger, barrett the concept store and culture map, other models
+// are the plain axes object.
 func renderLine(cfg engine.Config, s engine.State) string {
-	if cfg.Model == "occ" {
+	switch cfg.Model {
+	case "occ":
 		return engine.RenderOCC(s, cfg)
+	case "barrett":
+		return engine.RenderBarrett(s, cfg)
+	default:
+		return engine.Render(s, cfg)
 	}
-	return engine.Render(s, cfg)
 }
 
 // writeFragment writes the current axes JSON snapshot to cfg.FragmentFile when set.

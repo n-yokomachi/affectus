@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -237,4 +238,40 @@ func recencyWeight(c Concept, b *BarrettConfig, now time.Time) float64 {
 		age = 0
 	}
 	return math.Pow(0.5, age/b.HalflifeMinutes)
+}
+
+// slimConcept is the text-surface view of a stored experience: what the LLM
+// needs to construct with ("when I felt like this before, I framed it as X").
+// The full entry (vector, timestamps) stays on the developer surfaces
+// (show --format json, viz), mirroring the occ slim-text/full-json split.
+type slimConcept struct {
+	ID         string  `json:"id"`
+	Label      string  `json:"label"`
+	Valence    float64 `json:"valence"`
+	Arousal    float64 `json:"arousal"`
+	Importance float64 `json:"importance"`
+}
+
+func marshalSlimConcepts(cs []Concept) string {
+	slim := make([]slimConcept, 0, len(cs))
+	for _, c := range cs {
+		slim = append(slim, slimConcept{c.ID, c.Label, c.Valence, c.Arousal, c.Importance})
+	}
+	b, _ := json.Marshal(slim)
+	return string(b)
+}
+
+// RenderBarrett returns the barrett state as one-line JSON: core affect,
+// the whole concept store (slim), and the culture map. Echoing the map on
+// every read is what makes "swap the map, the responses change" hold.
+func RenderBarrett(s State, cfg Config) string {
+	cm, _ := json.Marshal(cfg.Barrett.CultureMap)
+	return `{"axes":` + Render(s, cfg) + `,"concepts":` + marshalSlimConcepts(s.Concepts) + `,"culture_map":` + string(cm) + `}`
+}
+
+// RenderRecall returns the recall command output: core affect, the retrieved
+// experiences (slim), and the culture map.
+func RenderRecall(s State, recalled []Concept, cfg Config) string {
+	cm, _ := json.Marshal(cfg.Barrett.CultureMap)
+	return `{"axes":` + Render(s, cfg) + `,"recalled":` + marshalSlimConcepts(recalled) + `,"culture_map":` + string(cm) + `}`
 }

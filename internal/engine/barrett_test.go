@@ -328,3 +328,50 @@ func TestRememberConceptValidation(t *testing.T) {
 		t.Error("want barrett-model error")
 	}
 }
+
+func TestRenderBarrett(t *testing.T) {
+	cfg := barrettCfg(t)
+	s := NewState(cfg, barrettNow)
+	s.Axes["valence"] = 0.25
+
+	// Empty store: concepts normalizes to [].
+	out := RenderBarrett(s, cfg)
+	if !strings.HasPrefix(out, `{"axes":{"valence":0.25,"arousal":0.30}`) {
+		t.Errorf("axes prefix wrong: %s", out)
+	}
+	if !strings.Contains(out, `"concepts":[]`) {
+		t.Errorf("empty store must render concepts:[], got %s", out)
+	}
+	if !strings.Contains(out, `"culture_map":"high-arousal unpleasant`) {
+		t.Errorf("culture_map missing or unescaped: %s", out)
+	}
+
+	// Slim entries: id/label/core affect/importance only.
+	c := unitConcept(t, cfg, "c1", "novelty", barrettNow)
+	c.Valence, c.Arousal, c.Importance = -0.4, 0.7, 0.55
+	s.Concepts = []Concept{c}
+	out = RenderBarrett(s, cfg)
+	if !strings.Contains(out, `"concepts":[{"id":"c1","label":"novelty","valence":-0.4,"arousal":0.7,"importance":0.55}]`) {
+		t.Errorf("slim concept wrong: %s", out)
+	}
+	if strings.Contains(out, "vector") || strings.Contains(out, "created_at") {
+		t.Errorf("slim render must omit vector/timestamps: %s", out)
+	}
+}
+
+func TestRenderRecall(t *testing.T) {
+	cfg := barrettCfg(t)
+	s := NewState(cfg, barrettNow)
+	c := unitConcept(t, cfg, "c3", "fairness", barrettNow)
+	out := RenderRecall(s, []Concept{c}, cfg)
+	if !strings.Contains(out, `"recalled":[{"id":"c3"`) {
+		t.Errorf("recalled entry missing: %s", out)
+	}
+	if !strings.Contains(out, `"culture_map":`) || !strings.Contains(out, `"axes":`) {
+		t.Errorf("recall render must include axes and culture_map: %s", out)
+	}
+	// Empty recall (store-off) normalizes to [].
+	if out := RenderRecall(s, nil, cfg); !strings.Contains(out, `"recalled":[]`) {
+		t.Errorf("nil recalled must render [], got %s", out)
+	}
+}
