@@ -35,13 +35,26 @@ type prospectValue struct {
 	Likelihood   float64 `json:"likelihood"`
 }
 
+// conceptValue is one concept-store entry in the /state response (barrett).
+type conceptValue struct {
+	ID           string    `json:"id"`
+	Label        string    `json:"label"`
+	Valence      float64   `json:"valence"`
+	Arousal      float64   `json:"arousal"`
+	Importance   float64   `json:"importance"`
+	CreatedAt    time.Time `json:"created_at"`
+	LastRecalled time.Time `json:"last_recalled"`
+}
+
 // stateResponse is the JSON body of GET /state.
 type stateResponse struct {
-	UpdatedAt time.Time       `json:"updated_at"`
-	Model     string          `json:"model"`
-	Clamp     clampRange      `json:"clamp"`
-	Axes      []axisValue     `json:"axes"`
-	Prospects []prospectValue `json:"prospects,omitempty"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	Model      string          `json:"model"`
+	Clamp      clampRange      `json:"clamp"`
+	Axes       []axisValue     `json:"axes"`
+	Prospects  []prospectValue `json:"prospects,omitempty"`
+	Concepts   []conceptValue  `json:"concepts,omitempty"`
+	CultureMap string          `json:"culture_map,omitempty"`
 }
 
 // loadConfig loads the config file if present, otherwise the embedded default.
@@ -84,6 +97,15 @@ func stateJSON(cfg engine.Config, statePath string, now time.Time) ([]byte, erro
 		resp.Prospects = append(resp.Prospects, prospectValue{
 			ID: p.ID, Label: p.Label, Desirability: p.Desirability, Likelihood: p.Likelihood,
 		})
+	}
+	for _, c := range s.Concepts {
+		resp.Concepts = append(resp.Concepts, conceptValue{
+			ID: c.ID, Label: c.Label, Valence: c.Valence, Arousal: c.Arousal,
+			Importance: c.Importance, CreatedAt: c.CreatedAt, LastRecalled: c.LastRecalled,
+		})
+	}
+	if cfg.Model == "barrett" && cfg.Barrett != nil {
+		resp.CultureMap = cfg.Barrett.CultureMap
 	}
 	return json.MarshalIndent(resp, "", "  ")
 }

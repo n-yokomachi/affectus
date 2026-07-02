@@ -159,6 +159,35 @@ func TestStateJSONPlutchikRangeFallsBackToClamp(t *testing.T) {
 	}
 }
 
+func TestStateJSONBarrettIncludesConcepts(t *testing.T) {
+	cfg, err := engine.ParseConfig(engine.Models["barrett"])
+	if err != nil {
+		t.Fatalf("parse config: %v", err)
+	}
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+	s := engine.NewState(cfg, now)
+	s.ConceptSeq = 1
+	s.Concepts = []engine.Concept{{
+		ID: "c1", Label: "quiet joy", Vector: make([]float64, 14),
+		Valence: 0.5, Arousal: 0.4, Importance: 0.42,
+		CreatedAt: now, LastRecalled: now,
+	}}
+	if err := engine.SaveState(statePath, s); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	b, err := stateJSON(cfg, statePath, now)
+	if err != nil {
+		t.Fatalf("stateJSON: %v", err)
+	}
+	for _, want := range []string{`"model": "barrett"`, `"concepts"`, `"quiet joy"`, `"importance"`, `"culture_map"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("state response missing %s:\n%s", want, b)
+		}
+	}
+}
+
 func TestStateJSONIncludesModelAndPerAxisRange(t *testing.T) {
 	cfg, err := engine.ParseConfig(engine.Models["russell"])
 	if err != nil {
