@@ -60,6 +60,8 @@ State and config live under `~/.config/affectus/` by default. Override with
 | `affectus feel '<json>'` | Apply self-reported deltas (use `-` to read stdin) |
 | `affectus tick` | Apply time decay only — the cron target |
 | `affectus reset` | Return every axis to baseline |
+| `affectus recall '<json>'` | Retrieve past experiences similar to a 14-attribute query (barrett) |
+| `affectus remember '<json>'` | Store this turn's constructed emotion in the concept store (barrett) |
 | `affectus mcp` | Run an MCP server (stdio) exposing `emotion_show` / `emotion_feel` |
 | `affectus viz [--port N]` | Serve a real-time browser visualization of the emotion state (default port 8765) |
 
@@ -95,6 +97,11 @@ Two alternative models ship built in: `affectus init --model russell` (2-axis
 core affect) and `affectus init --model occ` (22 OCC emotions derived from
 appraisals via `affectus appraise` — see
 `examples/system-prompt-snippet-occ.md`).
+
+`affectus init --model barrett` (constructed emotion: Russell core affect
+plus a persistent concept store of past experiences retrieved via
+`affectus recall` and stored via `affectus remember` — see
+`examples/system-prompt-snippet-barrett.md`).
 
 **v0.3 note:** affectus no longer renders emotions as natural-language text.
 It emits a one-line JSON object of all axes; the LLM is responsible for
