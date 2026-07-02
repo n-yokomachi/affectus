@@ -74,6 +74,7 @@ func conceptImportance(valence, arousal float64, cfg Config) float64 {
 		}
 	}
 	maxDist := math.Sqrt(dv*dv + da*da)
+	// Unreachable for validated configs (ranges are non-degenerate); kept as a defensive guard.
 	if maxDist == 0 {
 		return 0
 	}

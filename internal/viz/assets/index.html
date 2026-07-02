@@ -250,7 +250,7 @@ function renderConcepts(concepts) {
   const box = document.getElementById("concepts");
   box.innerHTML = "";
   const h = document.createElement("div"); h.className = "panel-sub";
-  h.textContent = "concept store (stored experiences)";
+  h.textContent = "concept store (stored experiences; age = since last recall)";
   box.appendChild(h);
   if (!concepts.length) {
     const d = document.createElement("div"); d.className = "prospect-row";
@@ -264,7 +264,7 @@ function renderConcepts(concepts) {
     row.appendChild(id);
     const sv = c.valence >= 0 ? "+" : "";
     row.appendChild(document.createTextNode(
-      `${c.label}  (v ${sv}${c.valence.toFixed(2)}, a ${c.arousal.toFixed(2)}, imp ${c.importance.toFixed(2)}, ${formatAge(c.created_at)})`));
+      `${c.label}  (v ${sv}${c.valence.toFixed(2)}, a ${c.arousal.toFixed(2)}, imp ${c.importance.toFixed(2)}, ${formatAge(c.last_recalled)})`));
     box.appendChild(row);
   });
 }
