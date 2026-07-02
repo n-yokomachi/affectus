@@ -3,7 +3,13 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from src.affectus_tools import affectus_show, affectus_feel, affectus_reset
+from src.affectus_tools import (
+    affectus_show,
+    affectus_feel,
+    affectus_recall,
+    affectus_remember,
+    affectus_reset,
+)
 
 
 @patch("src.affectus_tools.subprocess.run")
@@ -37,6 +43,27 @@ def test_affectus_feel_serializes_deltas_as_json(mock_run):
 
 
 @patch("src.affectus_tools.subprocess.run")
+def test_affectus_recall_serializes_query_as_json(mock_run):
+    mock_run.return_value = MagicMock(returncode=0, stdout='{"recalled": []}\n', stderr="")
+    out = affectus_recall({"valence": 0.2, "arousal": 0.5}, state_path="/tmp/s.json", config_path=None)
+    assert out == '{"recalled": []}'
+    cmd = mock_run.call_args[0][0]
+    assert cmd[-2] == "recall"
+    assert json.loads(cmd[-1]) == {"valence": 0.2, "arousal": 0.5}
+
+
+@patch("src.affectus_tools.subprocess.run")
+def test_affectus_remember_serializes_label_and_vector_as_json(mock_run):
+    mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+    vector = {"valence": -0.3, "arousal": 0.6}
+    out = affectus_remember("もどかしさ", vector, state_path="/tmp/s.json", config_path=None)
+    assert out == ""
+    cmd = mock_run.call_args[0][0]
+    assert cmd[-2] == "remember"
+    assert json.loads(cmd[-1]) == {"label": "もどかしさ", "vector": vector}
+
+
+@patch("src.affectus_tools.subprocess.run")
 def test_affectus_reset_invokes_reset(mock_run):
     mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
     affectus_reset(state_path="/tmp/s.json", config_path=None)
@@ -63,3 +90,17 @@ def test_affectus_reset_raises_on_nonzero(mock_run):
     mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: state locked")
     with pytest.raises(RuntimeError, match="affectus reset failed"):
         affectus_reset(state_path="/tmp/s.json", config_path=None)
+
+
+@patch("src.affectus_tools.subprocess.run")
+def test_affectus_recall_raises_on_nonzero(mock_run):
+    mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: invalid query")
+    with pytest.raises(RuntimeError, match="affectus recall failed"):
+        affectus_recall({"valence": 0.2}, state_path="/tmp/s.json", config_path=None)
+
+
+@patch("src.affectus_tools.subprocess.run")
+def test_affectus_remember_raises_on_nonzero(mock_run):
+    mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error: invalid vector")
+    with pytest.raises(RuntimeError, match="affectus remember failed"):
+        affectus_remember("もどかしさ", {"valence": -0.3}, state_path="/tmp/s.json", config_path=None)
