@@ -74,7 +74,7 @@ type BarrettConfig struct {
 // Config is the full library configuration.
 type Config struct {
 	Version int `yaml:"version"`
-	// Model identifies the emotion model ("plutchik" | "russell" | "occ"). Optional;
+	// Model identifies the emotion model ("plutchik" | "russell" | "occ" | "barrett"). Optional;
 	// empty means the legacy default (Plutchik). Used by viz to choose a
 	// rendering and as profile self-description.
 	Model        string         `yaml:"model"`
