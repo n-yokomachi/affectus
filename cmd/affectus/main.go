@@ -87,6 +87,19 @@ func run(args []string) error {
 			payload = string(b)
 		}
 		return cli.Appraise(env, payload)
+	case "recall":
+		if len(cmdArgs) != 1 {
+			return fmt.Errorf("usage: affectus recall '<query-json>'  (use - to read JSON from stdin)")
+		}
+		payload := cmdArgs[0]
+		if payload == "-" {
+			b, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
+			if err != nil {
+				return err
+			}
+			payload = string(b)
+		}
+		return cli.Recall(env, payload)
 	case "remember":
 		if len(cmdArgs) != 1 {
 			return fmt.Errorf("usage: affectus remember '{\"label\":\"...\",\"vector\":{...}}'  (use - to read JSON from stdin)")

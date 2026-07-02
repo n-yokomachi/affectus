@@ -291,6 +291,75 @@ func TestRememberRejectsBadInput(t *testing.T) {
 	}
 }
 
+func TestRecallReturnsAndBumps(t *testing.T) {
+	env := barrettEnv(t)
+	// Store two experiences via Remember (c1 novelty-ish, c2 fairness-ish).
+	for _, p := range []string{
+		`{"label":"novelty memory","vector":` + fullVectorJSON(t, map[string]float64{"novelty": 1}) + `}`,
+		`{"label":"fairness memory","vector":` + fullVectorJSON(t, map[string]float64{"fairness": 1}) + `}`,
+	} {
+		if err := Remember(env, p); err != nil {
+			t.Fatalf("Remember: %v", err)
+		}
+	}
+	env.Stdout = &bytes.Buffer{}
+	if err := Recall(env, fullVectorJSON(t, map[string]float64{"fairness": 1})); err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
+	out := env.Stdout.(*bytes.Buffer).String()
+	if !strings.Contains(out, `"recalled":[{"id":"c2","label":"fairness memory"`) {
+		t.Errorf("want c2 ranked first in output: %s", out)
+	}
+	if !strings.Contains(out, `"culture_map":`) || !strings.Contains(out, `"axes":`) {
+		t.Errorf("recall output must include axes and culture_map: %s", out)
+	}
+	// LastRecalled persisted.
+	cfg, _ := engine.LoadConfig(env.ConfigPath)
+	s, _ := engine.LoadState(env.StatePath, cfg, env.Now())
+	for _, c := range s.Concepts {
+		if c.ID == "c2" && !c.LastRecalled.Equal(env.Now()) {
+			t.Errorf("c2 LastRecalled not persisted: %v", c.LastRecalled)
+		}
+	}
+}
+
+func TestRecallStoreOffIsReadOnly(t *testing.T) {
+	env := barrettEnv(t)
+	// Rewrite config with recall_k: 0 (store-off).
+	off := strings.Replace(string(engine.Models["barrett"]), "recall_k: 5", "recall_k: 0", 1)
+	if err := os.WriteFile(env.ConfigPath, []byte(off), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := Remember(env, `{"label":"m","vector":`+fullVectorJSON(t, nil)+`}`); err != nil {
+		t.Fatalf("Remember: %v", err)
+	}
+	before, err := os.ReadFile(env.StatePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	env.Stdout = &bytes.Buffer{}
+	if err := Recall(env, fullVectorJSON(t, nil)); err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
+	if out := env.Stdout.(*bytes.Buffer).String(); !strings.Contains(out, `"recalled":[]`) {
+		t.Errorf("store-off must return recalled:[], got %s", out)
+	}
+	after, _ := os.ReadFile(env.StatePath)
+	if string(before) != string(after) {
+		t.Error("store-off recall must not rewrite the state file")
+	}
+}
+
+func TestRecallRejectsBadQuery(t *testing.T) {
+	env := barrettEnv(t)
+	if err := Recall(env, `{"valence":0.1}`); err == nil {
+		t.Error("want missing-dims error")
+	}
+	if err := Recall(env, `not json`); err == nil {
+		t.Error("want JSON error")
+	}
+}
+
 func TestPlutchikShowLineHasNoProspects(t *testing.T) {
 	env, _ := testEnv(t)
 	if err := Init(env, "plutchik", false); err != nil {

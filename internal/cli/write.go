@@ -147,6 +147,50 @@ type rememberPayload struct {
 	Vector map[string]float64 `json:"vector"`
 }
 
+// Recall retrieves the top-K experiences for a named-key query vector, bumps
+// their LastRecalled (retrieval reinforcement), persists when anything was
+// recalled, and prints {"axes":...,"recalled":[...],"culture_map":"..."}.
+// With recall_k: 0 (store-off) or an empty store it is effectively
+// read-only: nothing is bumped and the state file is left untouched.
+func Recall(env Env, queryJSON string) error {
+	var named map[string]float64
+	if err := json.Unmarshal([]byte(queryJSON), &named); err != nil {
+		return fmt.Errorf("invalid query JSON: %w", err)
+	}
+	cfg, err := loadConfig(env)
+	if err != nil {
+		return err
+	}
+	query, err := engine.BarrettVector(named, cfg)
+	if err != nil {
+		return err
+	}
+	var out string
+	err = engine.WithLock(env.StatePath, func() error {
+		s, err := engine.LoadState(env.StatePath, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		s = engine.Decay(s, cfg, env.Now())
+		s, recalled, err := engine.RecallConcepts(s, query, cfg, env.Now())
+		if err != nil {
+			return err
+		}
+		if len(recalled) > 0 {
+			if err := engine.SaveState(env.StatePath, s); err != nil {
+				return err
+			}
+		}
+		out = engine.RenderRecall(s, recalled, cfg)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(env.Stdout, out)
+	return nil
+}
+
 // Remember stores one experience in the barrett concept store: it decays to
 // now, snapshots the current core affect, appends the entry (evicting over
 // max_concepts), persists, and prints the rendered line. Unknown fields are
