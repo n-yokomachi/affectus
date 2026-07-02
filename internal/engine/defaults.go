@@ -11,11 +11,15 @@ var russellYAML []byte
 //go:embed occ.default.yaml
 var occYAML []byte
 
+//go:embed barrett.default.yaml
+var barrettYAML []byte
+
 // Models maps a model identifier to its embedded default configuration YAML.
 var Models = map[string][]byte{
 	"plutchik": plutchikYAML,
 	"russell":  russellYAML,
 	"occ":      occYAML,
+	"barrett":  barrettYAML,
 }
 
 // DefaultConfigYAML is the embedded Plutchik-8 default configuration. Kept as

@@ -1,0 +1,31 @@
+version: 1
+model: barrett
+clamp:       { min: -1.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+
+axes:
+  # core affect (Russell circumplex) — the substrate the concept store sits on
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min:  0.0, max: 1.0 } }
+
+barrett:
+  # v1 retrieval representation: the 14 emotion-concept attributes of
+  # Li et al. 2024 (iScience). The agent self-reports these values; the
+  # engine only stores and deterministically searches them.
+  vector_dims: [valence, arousal, happy-face, anger-face, sad-face, fear-face,
+                surprise-face, disgust-face, control, fairness, self-relativity,
+                other-relativity, expectedness, novelty]
+  recall_k: 5                       # top-K experiences returned by recall (0 = store-off)
+  max_concepts: 200                 # hard cap; lowest recency+importance evicted first
+  concept_halflife_minutes: 10080   # retrieval recency half-life (7 days)
+  weights: { relevance: 1.0, recency: 1.0, importance: 1.0 }
+  distance: cosine
+  # Category vocabulary echoed back on recall/show. Swap the map to shift
+  # the culture the agent constructs its emotions in.
+  culture_map: |
+    high-arousal unpleasant: anger / irritation / anxiety
+    low-arousal unpleasant: sadness / gloom / weariness
+    high-arousal pleasant: excitement / joy / eagerness
+    low-arousal pleasant: calm / contentment / nostalgia
+
+fragment_file: ""

@@ -45,18 +45,45 @@ type OCCConfig struct {
 	MaxProspects int      `yaml:"max_prospects"`
 }
 
+// BarrettWeights holds the ranking weights of the concept-store retrieval
+// score (barrett model).
+type BarrettWeights struct {
+	Relevance  float64 `yaml:"relevance"`
+	Recency    float64 `yaml:"recency"`
+	Importance float64 `yaml:"importance"`
+}
+
+// BarrettConfig is the barrett-model section of the config. nil for other
+// models.
+type BarrettConfig struct {
+	// VectorDims declares the named dimensions of the retrieval vector.
+	// v1 convention: the 14 emotion-concept attributes of Li et al. 2024.
+	VectorDims []string `yaml:"vector_dims"`
+	// RecallK is the number of experiences recall returns. 0 = store-off
+	// (recall always returns an empty list; the eval control-group switch).
+	RecallK     int `yaml:"recall_k"`
+	MaxConcepts int `yaml:"max_concepts"`
+	// HalflifeMinutes is the retrieval-recency half-life. It decays an
+	// entry's search weight, never its stored values.
+	HalflifeMinutes float64        `yaml:"concept_halflife_minutes"`
+	Weights         BarrettWeights `yaml:"weights"`
+	Distance        string         `yaml:"distance"` // "" | "cosine"
+	CultureMap      string         `yaml:"culture_map"`
+}
+
 // Config is the full library configuration.
 type Config struct {
 	Version int `yaml:"version"`
 	// Model identifies the emotion model ("plutchik" | "russell" | "occ"). Optional;
 	// empty means the legacy default (Plutchik). Used by viz to choose a
 	// rendering and as profile self-description.
-	Model        string       `yaml:"model"`
-	Clamp        Range        `yaml:"clamp"`
-	DeltaClamp   Range        `yaml:"delta_clamp"`
-	Axes         []AxisConfig `yaml:"axes"`
-	OCC          *OCCConfig   `yaml:"occ"`
-	FragmentFile string       `yaml:"fragment_file"`
+	Model        string         `yaml:"model"`
+	Clamp        Range          `yaml:"clamp"`
+	DeltaClamp   Range          `yaml:"delta_clamp"`
+	Axes         []AxisConfig   `yaml:"axes"`
+	OCC          *OCCConfig     `yaml:"occ"`
+	Barrett      *BarrettConfig `yaml:"barrett"`
+	FragmentFile string         `yaml:"fragment_file"`
 }
 
 // ParseConfig unmarshals YAML and validates it.
@@ -137,6 +164,45 @@ func (c Config) Validate() error {
 			if !seen[name] {
 				return fmt.Errorf("config: model occ requires axis %q", name)
 			}
+		}
+	}
+	if c.Model == "barrett" {
+		if c.Barrett == nil {
+			return fmt.Errorf("config: model barrett requires a barrett section")
+		}
+		b := c.Barrett
+		for _, name := range []string{"valence", "arousal"} {
+			if !seen[name] {
+				return fmt.Errorf("config: model barrett requires axis %q", name)
+			}
+		}
+		if len(b.VectorDims) == 0 {
+			return fmt.Errorf("config: barrett vector_dims must not be empty")
+		}
+		seenDim := map[string]bool{}
+		for _, d := range b.VectorDims {
+			if seenDim[d] {
+				return fmt.Errorf("config: duplicate vector dimension %q", d)
+			}
+			seenDim[d] = true
+		}
+		if b.RecallK < 0 {
+			return fmt.Errorf("config: barrett recall_k must be non-negative")
+		}
+		if b.MaxConcepts <= 0 {
+			return fmt.Errorf("config: barrett max_concepts must be positive")
+		}
+		if b.HalflifeMinutes <= 0 {
+			return fmt.Errorf("config: barrett concept_halflife_minutes must be positive")
+		}
+		w := b.Weights
+		if w.Relevance < 0 || w.Recency < 0 || w.Importance < 0 {
+			return fmt.Errorf("config: barrett weights must be non-negative")
+		}
+		switch b.Distance {
+		case "", "cosine":
+		default:
+			return fmt.Errorf("config: barrett distance %q is not supported (want cosine)", b.Distance)
 		}
 	}
 	return nil

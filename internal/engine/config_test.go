@@ -168,3 +168,89 @@ func TestValidateOCCRejectsBadGainsAndCap(t *testing.T) {
 		t.Fatalf("want max_prospects error, got %v", err)
 	}
 }
+
+func TestParseBarrettDefaultConfig(t *testing.T) {
+	cfg, err := ParseConfig(Models["barrett"])
+	if err != nil {
+		t.Fatalf("parse barrett default config: %v", err)
+	}
+	if cfg.Model != "barrett" || cfg.Barrett == nil {
+		t.Fatalf("model = %q, barrett section present = %v", cfg.Model, cfg.Barrett != nil)
+	}
+	if len(cfg.Barrett.VectorDims) != 14 {
+		t.Errorf("vector_dims = %d, want 14", len(cfg.Barrett.VectorDims))
+	}
+	if cfg.Barrett.RecallK != 5 || cfg.Barrett.MaxConcepts != 200 {
+		t.Errorf("recall_k=%d max_concepts=%d, want 5/200", cfg.Barrett.RecallK, cfg.Barrett.MaxConcepts)
+	}
+	if cfg.Barrett.HalflifeMinutes != 10080 {
+		t.Errorf("concept_halflife_minutes = %v, want 10080", cfg.Barrett.HalflifeMinutes)
+	}
+	if cfg.Barrett.CultureMap == "" {
+		t.Error("culture_map must not be empty in the default config")
+	}
+}
+
+func TestBarrettConfigValidation(t *testing.T) {
+	base := string(Models["barrett"])
+	repl := func(old, new string) string {
+		if !strings.Contains(base, old) {
+			t.Fatalf("test setup: default yaml does not contain %q", old)
+		}
+		return strings.Replace(base, old, new, 1)
+	}
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string // "" = must be valid
+	}{
+		{"recall_k zero is valid (store-off)", repl("recall_k: 5", "recall_k: 0"), ""},
+		{"negative recall_k", repl("recall_k: 5", "recall_k: -1"), "recall_k"},
+		{"zero max_concepts", repl("max_concepts: 200", "max_concepts: 0"), "max_concepts"},
+		{"zero halflife", repl("concept_halflife_minutes: 10080", "concept_halflife_minutes: 0"), "concept_halflife_minutes"},
+		{"negative weight", repl("relevance: 1.0", "relevance: -0.5"), "weights"},
+		{"unknown distance", repl("distance: cosine", "distance: euclid"), "distance"},
+		{"empty distance is valid (cosine default)", repl("distance: cosine", `distance: ""`), ""},
+		{"missing barrett section", `
+version: 1
+model: barrett
+clamp:       { min: -1.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+axes:
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min: 0.0, max: 1.0 } }
+`, "barrett section"},
+		{"missing arousal axis", `
+version: 1
+model: barrett
+clamp:       { min: -1.0, max: 1.0 }
+delta_clamp: { min: -1.0, max: 1.0 }
+axes:
+  - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
+barrett:
+  vector_dims: [valence, arousal]
+  recall_k: 5
+  max_concepts: 200
+  concept_halflife_minutes: 10080
+  weights: { relevance: 1.0, recency: 1.0, importance: 1.0 }
+`, `axis "arousal"`},
+		{"empty vector_dims", repl(`  vector_dims: [valence, arousal, happy-face, anger-face, sad-face, fear-face,
+                surprise-face, disgust-face, control, fairness, self-relativity,
+                other-relativity, expectedness, novelty]`, "  vector_dims: []"), "vector_dims"},
+		{"duplicate vector dim", repl("expectedness, novelty]", "expectedness, novelty, valence]"), "duplicate vector dimension"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseConfig([]byte(tt.yaml))
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("want valid, got %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("want error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
