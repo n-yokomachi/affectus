@@ -10,8 +10,8 @@ version: 1
 clamp:       { min: 0.0, max: 1.0 }
 delta_clamp: { min: -1.0, max: 1.0 }
 axes:
-  - { name: joy,     baseline: 0.0, halflife_minutes: 90, opposite: sadness }
-  - { name: sadness, baseline: 0.0, halflife_minutes: 90, opposite: joy }
+  - { name: joy,     baseline: 0.0, halflife_minutes: 90, opposite: sorrow }
+  - { name: sorrow, baseline: 0.0, halflife_minutes: 90, opposite: joy }
 fragment_file: ""
 `
 

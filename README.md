@@ -42,9 +42,9 @@ Requires macOS or Linux (affectus uses Unix file locking).
 
 ```bash
 affectus init                       # write default config + baseline state
-affectus show                       # -> {"joy":0.00,"trust":0.00,...}
+affectus show                       # -> {"joy":0.00,"acceptance":0.00,...}
 affectus feel '{"joy":0.6,"surprise":0.2}'
-affectus show                       # -> {"joy":0.60,"trust":0.00,...,"surprise":0.20,...}
+affectus show                       # -> {"joy":0.60,"acceptance":0.00,...,"surprise":0.20,...}
 ```
 
 State and config live under `~/.config/affectus/` by default. Override with
@@ -88,10 +88,17 @@ mood visibly drifts toward baseline between turns. The server is read-only.
 
 ## Emotion model
 
-Default axes are Plutchik's 8 emotions (joy, sadness, trust, disgust, fear,
-anger, surprise, anticipation), each `0.0–1.0`. Axis names, count, baselines,
+Default axes are Plutchik's 8 emotions (joy, sorrow, acceptance, disgust, fear,
+anger, surprise, expectancy), each `0.0–1.0`. Axis names, count, baselines,
 and half-lives are all configurable — see the config written by `affectus init`
 and `examples/configs/plutchik-ja.yaml`.
+
+The default vocabulary follows Plutchik's 2001 article "The Nature of
+Emotions": acceptance, sorrow and expectancy are the axes that popular
+renderings of the wheel call trust, sadness and anticipation. Earlier releases
+(v0.3.0 and below) used the popular names; after upgrading, state entries
+saved under the old names are ignored (those axes restart from baseline) and
+`affectus feel` rejects the old names.
 
 Three alternative models ship built in: `affectus init --model russell` (2-axis
 core affect), `affectus init --model occ` (22 OCC emotions derived from

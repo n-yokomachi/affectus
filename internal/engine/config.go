@@ -18,7 +18,7 @@ type AxisConfig struct {
 	Name            string  `yaml:"name"`
 	Baseline        float64 `yaml:"baseline"`
 	HalflifeMinutes float64 `yaml:"halflife_minutes"`
-	// Opposite names the polar-opposite axis (e.g. joy <-> sadness). Reserved
+	// Opposite names the polar-opposite axis (e.g. joy <-> sorrow). Reserved
 	// for future use: validated for referential integrity but not yet consumed
 	// by decay, apply, or render logic.
 	Opposite string `yaml:"opposite"`

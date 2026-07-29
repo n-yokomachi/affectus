@@ -56,7 +56,7 @@ func TestLoadStateCorruptFileErrors(t *testing.T) {
 func TestLoadStateFillsMissingAxes(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	path := filepath.Join(t.TempDir(), "state.json")
-	// state file missing the "trust" axis entirely
+	// state file missing the "acceptance" axis entirely
 	if err := os.WriteFile(path, []byte(`{"version":1,"updated_at":"2026-05-17T12:00:00Z","axes":{"joy":0.5}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestLoadStateFillsMissingAxes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadState: %v", err)
 	}
-	if _, ok := s.Axes["trust"]; !ok {
+	if _, ok := s.Axes["acceptance"]; !ok {
 		t.Fatal("missing axis should be filled with baseline")
 	}
 }

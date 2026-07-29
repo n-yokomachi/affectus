@@ -17,8 +17,8 @@ def test_cells_constant_is_2x2():
 
 
 def test_parse_feel_tag_extracts_json():
-    text = 'いいですね。<feel>{"joy": 0.3, "sadness": -0.1}</feel>'
-    assert parse_feel_tag(text) == {"joy": 0.3, "sadness": -0.1}
+    text = 'いいですね。<feel>{"joy": 0.3, "sorrow": -0.1}</feel>'
+    assert parse_feel_tag(text) == {"joy": 0.3, "sorrow": -0.1}
 
 
 def test_parse_feel_tag_returns_none_when_absent():

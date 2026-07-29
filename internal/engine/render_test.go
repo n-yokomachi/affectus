@@ -10,11 +10,11 @@ func TestRenderAllAxesInConfigOrder(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	s := NewState(cfg, time.Now())
 	s.Axes["joy"] = 0.50
-	s.Axes["trust"] = 0.40
+	s.Axes["acceptance"] = 0.40
 	s.Axes["surprise"] = 0.20
 	got := Render(s, cfg)
 	// Must be a single-line JSON with all 8 axes in config order
-	want := `{"joy":0.50,"trust":0.40,"fear":0.00,"surprise":0.20,"sadness":0.00,"disgust":0.00,"anger":0.00,"anticipation":0.00}`
+	want := `{"joy":0.50,"acceptance":0.40,"fear":0.00,"surprise":0.20,"sorrow":0.00,"disgust":0.00,"anger":0.00,"expectancy":0.00}`
 	if got != want {
 		t.Fatalf("Render =\n%q\nwant\n%q", got, want)
 	}
@@ -35,8 +35,8 @@ func TestRenderZeroValuesIncluded(t *testing.T) {
 	s := NewState(cfg, time.Now())
 	s.Axes["joy"] = 0.8
 	got := Render(s, cfg)
-	if !strings.Contains(got, `"sadness":0.00`) {
-		t.Fatalf("zero sadness axis missing in %q", got)
+	if !strings.Contains(got, `"sorrow":0.00`) {
+		t.Fatalf("zero sorrow axis missing in %q", got)
 	}
 }
 
@@ -44,7 +44,7 @@ func TestRenderEmptyStateAllZeros(t *testing.T) {
 	cfg, _ := DefaultConfig()
 	s := NewState(cfg, time.Now()) // all axes at baseline (0.0)
 	got := Render(s, cfg)
-	want := `{"joy":0.00,"trust":0.00,"fear":0.00,"surprise":0.00,"sadness":0.00,"disgust":0.00,"anger":0.00,"anticipation":0.00}`
+	want := `{"joy":0.00,"acceptance":0.00,"fear":0.00,"surprise":0.00,"sorrow":0.00,"disgust":0.00,"anger":0.00,"expectancy":0.00}`
 	if got != want {
 		t.Fatalf("Render empty =\n%q\nwant\n%q", got, want)
 	}

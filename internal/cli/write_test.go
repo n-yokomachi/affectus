@@ -17,7 +17,7 @@ func TestFeelAppliesDeltas(t *testing.T) {
 	if err := Init(env, "plutchik", false); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	if err := Feel(env, `{"joy":0.6,"anticipation":0.3}`); err != nil {
+	if err := Feel(env, `{"joy":0.6,"expectancy":0.3}`); err != nil {
 		t.Fatalf("Feel: %v", err)
 	}
 	_, axes, err := ComputeShow(env)

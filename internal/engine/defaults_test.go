@@ -28,7 +28,7 @@ func TestDefaultConfigAxisOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default config: %v", err)
 	}
-	want := []string{"joy", "trust", "fear", "surprise", "sadness", "disgust", "anger", "anticipation"}
+	want := []string{"joy", "acceptance", "fear", "surprise", "sorrow", "disgust", "anger", "expectancy"}
 	if len(cfg.Axes) != len(want) {
 		t.Fatalf("got %d axes, want %d", len(cfg.Axes), len(want))
 	}

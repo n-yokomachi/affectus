@@ -3,13 +3,13 @@ clamp:       { min: 0.0, max: 1.0 }
 delta_clamp: { min: -1.0, max: 1.0 }
 
 axes:
-  - { name: joy,          baseline: 0.0, halflife_minutes: 90, opposite: sadness }
-  - { name: trust,        baseline: 0.0, halflife_minutes: 90, opposite: disgust }
-  - { name: fear,         baseline: 0.0, halflife_minutes: 90, opposite: anger }
-  - { name: surprise,     baseline: 0.0, halflife_minutes: 90, opposite: anticipation }
-  - { name: sadness,      baseline: 0.0, halflife_minutes: 90, opposite: joy }
-  - { name: disgust,      baseline: 0.0, halflife_minutes: 90, opposite: trust }
-  - { name: anger,        baseline: 0.0, halflife_minutes: 90, opposite: fear }
-  - { name: anticipation, baseline: 0.0, halflife_minutes: 90, opposite: surprise }
+  - { name: joy,        baseline: 0.0, halflife_minutes: 90, opposite: sorrow }
+  - { name: acceptance, baseline: 0.0, halflife_minutes: 90, opposite: disgust }
+  - { name: fear,       baseline: 0.0, halflife_minutes: 90, opposite: anger }
+  - { name: surprise,   baseline: 0.0, halflife_minutes: 90, opposite: expectancy }
+  - { name: sorrow,     baseline: 0.0, halflife_minutes: 90, opposite: joy }
+  - { name: disgust,    baseline: 0.0, halflife_minutes: 90, opposite: acceptance }
+  - { name: anger,      baseline: 0.0, halflife_minutes: 90, opposite: fear }
+  - { name: expectancy, baseline: 0.0, halflife_minutes: 90, opposite: surprise }
 
 fragment_file: ""

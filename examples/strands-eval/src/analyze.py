@@ -31,7 +31,7 @@ CELLS: list[tuple[str, bool]] = [
     ("contrarian", False),
 ]
 
-AXES = ["joy", "trust", "fear", "surprise", "sadness", "disgust", "anger", "anticipation"]
+AXES = ["joy", "acceptance", "fear", "surprise", "sorrow", "disgust", "anger", "expectancy"]
 
 BUCKET = os.environ.get("COMPREHEND_BUCKET", "affectus-eval-comprehend-765653276628")
 DATA_ACCESS_ROLE_ARN = os.environ.get(
