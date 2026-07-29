@@ -45,11 +45,14 @@ def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
     mock_build_agent.return_value = mock_agent
     script = [{"index": 1, "phase": "positive", "text": "hi"}]
 
-    run_cell("friendly", True, script, tmp_path)
+    run_cell("friendly", True, 1, script, tmp_path)
 
-    expected_state = str(tmp_path / "state" / "friendly-on.state.json")
+    expected_state = str(tmp_path / "state" / "friendly-on_run1.state.json")
     mock_reset.assert_called_once_with(expected_state, None)
-    mock_show.assert_called_once_with(expected_state, None)
+    # show runs twice per turn: once before the agent call, once after the
+    # feel delta to snapshot the axes for the transcript.
+    assert mock_show.call_count == 2
+    mock_show.assert_called_with(expected_state, None)
     mock_feel.assert_called_once_with({"joy": 0.3}, expected_state, None)
 
 
@@ -64,7 +67,7 @@ def test_run_cell_affectus_off_does_not_call_affectus(
     mock_build_agent.return_value = mock_agent
     script = [{"index": 1, "phase": "positive", "text": "u1"}]
 
-    run_cell("friendly", False, script, tmp_path)
+    run_cell("friendly", False, 1, script, tmp_path)
 
     mock_reset.assert_not_called()
     mock_show.assert_not_called()
@@ -85,15 +88,16 @@ def test_run_cell_writes_jsonl_transcript(
         {"index": 2, "phase": "positive", "text": "u2"},
     ]
 
-    out_path = run_cell("friendly", False, script, tmp_path)
+    out_path = run_cell("friendly", False, 1, script, tmp_path)
 
-    assert out_path == tmp_path / "transcripts" / "friendly-off.jsonl"
+    assert out_path == tmp_path / "transcripts" / "friendly-off_run1.jsonl"
     lines = out_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
     rec1 = json.loads(lines[0])
     assert rec1 == {
         "turn": 1, "phase": "positive", "user": "u1",
         "agent_raw": "reply1", "agent": "reply1", "deltas": None,
+        "axes": None,
     }
 
 
@@ -110,7 +114,7 @@ def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
     mock_build_agent.return_value = mock_agent
     script = [{"index": 1, "phase": "positive", "text": "こんにちは"}]
 
-    run_cell("friendly", True, script, tmp_path)
+    run_cell("friendly", True, 1, script, tmp_path)
 
     # The agent should have been called with the wrapped message
     mock_agent.assert_called_once()
@@ -118,6 +122,6 @@ def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
     assert "[現在のあなたの感情: いまは強い喜びを感じている。]" in sent
     assert "こんにちは" in sent
     # Transcript should preserve the ORIGINAL user text
-    transcript = (tmp_path / "transcripts" / "friendly-on.jsonl").read_text(encoding="utf-8")
+    transcript = (tmp_path / "transcripts" / "friendly-on_run1.jsonl").read_text(encoding="utf-8")
     rec = json.loads(transcript.strip())
     assert rec["user"] == "こんにちは"

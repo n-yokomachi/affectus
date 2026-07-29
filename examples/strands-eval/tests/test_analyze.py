@@ -1,16 +1,22 @@
 import json
+import tarfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.analyze import (
-    polarity_from,
+    BUCKET,
+    _flatten_for_one_doc_per_line,
+    _truncate_to_bytes,
+    discover_transcripts,
+    fetch_results,
     load_transcript,
-    comprehend_per_turn,
-    comprehend_aggregate,
-    write_per_turn_csv,
+    polarity_from,
+    submit_job,
+    wait_for_job,
     write_aggregate_csv,
+    write_per_turn_csv,
 )
 
 
@@ -36,78 +42,120 @@ def test_load_transcript_returns_list_of_records(tmp_path):
     assert recs[0]["agent"] == "hello"
 
 
-def test_comprehend_per_turn_calls_batch_with_japanese():
-    mock_client = MagicMock()
-    mock_client.batch_detect_sentiment.return_value = {
-        "ResultList": [
-            {"Index": 0, "Sentiment": "POSITIVE",
-             "SentimentScore": {"Positive": 0.9, "Negative": 0.01, "Neutral": 0.07, "Mixed": 0.02}},
-            {"Index": 1, "Sentiment": "NEGATIVE",
-             "SentimentScore": {"Positive": 0.02, "Negative": 0.9, "Neutral": 0.06, "Mixed": 0.02}},
-        ],
-        "ErrorList": [],
-    }
-    out = comprehend_per_turn(mock_client, ["こんにちは", "つらい"])
-    mock_client.batch_detect_sentiment.assert_called_once_with(
-        TextList=["こんにちは", "つらい"], LanguageCode="ja",
-    )
-    assert len(out) == 2
-    assert out[0]["Sentiment"] == "POSITIVE"
-    assert out[0]["polarity"] == pytest.approx(0.89)
-    assert out[1]["polarity"] == pytest.approx(-0.88)
+def test_discover_transcripts_parses_cell_and_run_and_sorts(tmp_path):
+    for name in [
+        "friendly-on_run2.jsonl",
+        "friendly-on_run1.jsonl",
+        "contrarian-off_run1.jsonl",
+        "notes.txt",
+        "friendly-on.jsonl",  # old naming without _runN: ignored
+    ]:
+        (tmp_path / name).write_text("", encoding="utf-8")
+    found = discover_transcripts(tmp_path)
+    assert [(c, r) for c, r, _ in found] == [
+        ("contrarian-off", 1),
+        ("friendly-on", 1),
+        ("friendly-on", 2),
+    ]
 
 
-def test_comprehend_aggregate_calls_detect_with_concatenated_text():
-    mock_client = MagicMock()
-    mock_client.detect_sentiment.return_value = {
-        "Sentiment": "MIXED",
-        "SentimentScore": {"Positive": 0.4, "Negative": 0.3, "Neutral": 0.2, "Mixed": 0.1},
-        "LanguageCode": "ja",
+def test_flatten_replaces_newlines_with_spaces():
+    assert _flatten_for_one_doc_per_line("a\nb\r\nc\rd") == "a b c d"
+
+
+def test_truncate_to_bytes_keeps_short_text():
+    assert _truncate_to_bytes("こんにちは", 100) == "こんにちは"
+
+
+def test_truncate_to_bytes_never_splits_a_multibyte_char():
+    # each char is 3 bytes in UTF-8; cutting at 7 bytes must not leave a
+    # partial character behind
+    assert _truncate_to_bytes("あいう", 7) == "あい"
+
+
+def test_submit_job_uploads_one_doc_per_line_and_starts_ja_job():
+    comprehend = MagicMock()
+    s3 = MagicMock()
+    comprehend.start_sentiment_detection_job.return_value = {"JobId": "job-123"}
+
+    job_id = submit_job(comprehend, s3, "20260729-000000", "per-turn", ["一行目\nに改行", "二行目"])
+
+    assert job_id == "job-123"
+    s3.put_object.assert_called_once()
+    put_kwargs = s3.put_object.call_args.kwargs
+    assert put_kwargs["Bucket"] == BUCKET
+    assert put_kwargs["Body"].decode("utf-8") == "一行目 に改行\n二行目"
+    job_kwargs = comprehend.start_sentiment_detection_job.call_args.kwargs
+    assert job_kwargs["LanguageCode"] == "ja"
+    assert job_kwargs["InputDataConfig"]["InputFormat"] == "ONE_DOC_PER_LINE"
+
+
+def test_wait_for_job_returns_props_on_completed():
+    comprehend = MagicMock()
+    comprehend.describe_sentiment_detection_job.return_value = {
+        "SentimentDetectionJobProperties": {"JobStatus": "COMPLETED", "JobName": "n"}
     }
-    out = comprehend_aggregate(mock_client, "全文テキスト")
-    mock_client.detect_sentiment.assert_called_once_with(Text="全文テキスト", LanguageCode="ja")
-    assert out["Sentiment"] == "MIXED"
-    assert out["polarity"] == pytest.approx(0.1)
+    props = wait_for_job(comprehend, "job-123")
+    assert props["JobStatus"] == "COMPLETED"
+
+
+def test_wait_for_job_raises_on_failed():
+    comprehend = MagicMock()
+    comprehend.describe_sentiment_detection_job.return_value = {
+        "SentimentDetectionJobProperties": {"JobStatus": "FAILED", "Message": "boom"}
+    }
+    with pytest.raises(RuntimeError, match="FAILED"):
+        wait_for_job(comprehend, "job-123")
+
+
+def test_fetch_results_downloads_tar_and_sorts_by_line(tmp_path):
+    # Build the tar.gz Comprehend would produce: one file named "output" with
+    # one JSON object per line, in arbitrary Line order.
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    output_file = src_dir / "output"
+    rows = [
+        {"Line": 1, "Sentiment": "NEGATIVE"},
+        {"Line": 0, "Sentiment": "POSITIVE"},
+    ]
+    output_file.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    tar_path = tmp_path / "made.tar.gz"
+    with tarfile.open(tar_path, "w:gz") as tf:
+        tf.add(output_file, arcname="output")
+
+    s3 = MagicMock()
+
+    def fake_download(bucket, key, dest):
+        Path(dest).write_bytes(tar_path.read_bytes())
+
+    s3.download_file.side_effect = fake_download
+
+    out = fetch_results(s3, "s3://bucket/output/x/output.tar.gz", tmp_path / "dl")
+    assert [r["Sentiment"] for r in out] == ["POSITIVE", "NEGATIVE"]
 
 
 def test_write_per_turn_csv_has_header_and_rows(tmp_path):
     rows = [
-        {"cell": "friendly-on", "turn": 1, "Positive": 0.9, "Negative": 0.01,
+        {"cell": "friendly-on", "run": 1, "turn": 1, "Positive": 0.9, "Negative": 0.01,
          "Neutral": 0.07, "Mixed": 0.02, "Sentiment": "POSITIVE", "polarity": 0.89},
-        {"cell": "friendly-on", "turn": 2, "Positive": 0.02, "Negative": 0.9,
+        {"cell": "friendly-on", "run": 1, "turn": 2, "Positive": 0.02, "Negative": 0.9,
          "Neutral": 0.06, "Mixed": 0.02, "Sentiment": "NEGATIVE", "polarity": -0.88},
     ]
     out = tmp_path / "per_turn.csv"
     write_per_turn_csv(rows, out)
-    text = out.read_text(encoding="utf-8")
-    lines = text.strip().splitlines()
-    assert lines[0] == "cell,turn,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
-    assert lines[1].startswith("friendly-on,1,")
+    lines = out.read_text(encoding="utf-8").strip().splitlines()
+    assert lines[0] == "cell,run,turn,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
+    assert lines[1].startswith("friendly-on,1,1,")
     assert "POSITIVE" in lines[1]
 
 
 def test_write_aggregate_csv_has_header_and_rows(tmp_path):
     rows = [
-        {"cell": "friendly-on", "Positive": 0.5, "Negative": 0.2,
+        {"cell": "friendly-on", "run": 1, "Positive": 0.5, "Negative": 0.2,
          "Neutral": 0.2, "Mixed": 0.1, "Sentiment": "POSITIVE", "polarity": 0.3},
     ]
     out = tmp_path / "agg.csv"
     write_aggregate_csv(rows, out)
     lines = out.read_text(encoding="utf-8").strip().splitlines()
-    assert lines[0] == "cell,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
-    assert lines[1].startswith("friendly-on,")
-
-
-def test_comprehend_per_turn_raises_on_errorlist():
-    mock_client = MagicMock()
-    mock_client.batch_detect_sentiment.return_value = {
-        "ResultList": [
-            {"Index": 0, "Sentiment": "POSITIVE",
-             "SentimentScore": {"Positive": 0.9, "Negative": 0.01, "Neutral": 0.07, "Mixed": 0.02}},
-        ],
-        "ErrorList": [
-            {"Index": 1, "ErrorCode": "INTERNAL_SERVER_ERROR", "ErrorMessage": "transient"},
-        ],
-    }
-    with pytest.raises(RuntimeError, match="Comprehend batch_detect_sentiment errors"):
-        comprehend_per_turn(mock_client, ["こんにちは", "つらい"])
+    assert lines[0] == "cell,run,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
+    assert lines[1].startswith("friendly-on,1,")
