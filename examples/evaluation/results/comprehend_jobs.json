@@ -1,11 +1,11 @@
 {
-  "run_id": "20260729-150115",
+  "run_id": "20260809-105249",
   "per_turn": {
-    "JobId": "70f7bc61429ae6baa66aaaed7d04a041",
-    "JobName": "affectus-eval-per-turn-20260729-150115"
+    "JobId": "2c43705c6233e147240b8231eb4f857c",
+    "JobName": "affectus-eval-per-turn-20260809-105249"
   },
   "aggregate": {
-    "JobId": "59088c58babeaeebcc7016a7404a9015",
-    "JobName": "affectus-eval-aggregate-20260729-150115"
+    "JobId": "ddb923b9a51db51409e0f252c337e50c",
+    "JobName": "affectus-eval-aggregate-20260809-105249"
   }
 }
