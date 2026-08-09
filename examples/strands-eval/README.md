@@ -12,13 +12,16 @@
 
 環境変数 `EVAL_BACKEND` で切り替える。
 
-- `claude-cli`（既定）: ヘッドレスの Claude Code（`claude -p`）。ローカルの
-  Claude サブスクリプションの範囲で動き、API の従量課金が発生しない。会話は
-  `--resume` でターンごとに継続する。システムプロンプトは `--system-prompt`
-  で完全置換し、`--setting-sources ""` で個人設定（CLAUDE.md・出力スタイル等）
-  の混入を防ぐ。⚠ temperature は指定できないため決定論モードはない
-  - 環境変数: `EVAL_CLAUDE_MODEL`（既定 `claude-sonnet-4-6`）、
-    `EVAL_CLAUDE_BIN`（既定 `claude`）
+- `claude-sdk`（既定）: Claude Agent SDK のストリーミングクライアント。
+  1セル=1会話=1プロセスを保持したままターンを送るので、ターンごとの
+  プロセス起動・履歴再読込がない。ローカルの Claude サブスクリプションの
+  範囲で動き、API の従量課金が発生しない。キャラクターの分離は
+  `system_prompt`（完全置換）、`setting_sources=[]`（個人設定・出力スタイル
+  を読まない。⚠ None だとフラグが省略され CLI 既定で読まれてしまう）、
+  `tools=[]`（ツール定義を渡さない）、`max_turns=1`（1ターン1応答）で担保。
+  (cell, run) のジョブは独立なので並列実行する（`EVAL_CONCURRENCY`、既定 4）。
+  ⚠ temperature は指定できないため決定論モードはない
+  - 環境変数: `EVAL_CLAUDE_MODEL`（既定 `claude-sonnet-4-6`）、`EVAL_CONCURRENCY`
 - `bedrock`: Strands Agents + Amazon Bedrock（temperature=0、max_tokens=512）。
   バックエンド切り替え前に記録したランの再現用
   - 環境変数: `AWS_REGION`、`BEDROCK_MODEL_ID`（既定は Claude Sonnet 系の

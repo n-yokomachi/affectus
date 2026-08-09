@@ -1,10 +1,32 @@
+import asyncio
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from src.run import CELLS, parse_feel_tag, strip_feel_tag, run_cell
+
+
+class FakeAgent:
+    """Async agent double matching the backend interface in src.agent."""
+
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.calls: list[str] = []
+        self.entered = False
+        self.exited = False
+
+    async def __aenter__(self):
+        self.entered = True
+        return self
+
+    async def __aexit__(self, *exc):
+        self.exited = True
+        return False
+
+    async def __call__(self, message: str) -> str:
+        self.calls.append(message)
+        return self.replies.pop(0)
 
 
 def test_cells_constant_is_2x2():
@@ -41,11 +63,11 @@ def test_strip_feel_tag_removes_tag_and_surrounding_whitespace():
 def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
     mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
-    mock_agent = MagicMock(return_value='ふむ。<feel>{"joy":0.3}</feel>')
-    mock_build_agent.return_value = mock_agent
+    agent = FakeAgent(['ふむ。<feel>{"joy":0.3}</feel>'])
+    mock_build_agent.return_value = agent
     script = [{"index": 1, "phase": "positive", "text": "hi"}]
 
-    run_cell("friendly", True, 1, script, tmp_path)
+    asyncio.run(run_cell("friendly", True, 1, script, tmp_path))
 
     expected_state = str(tmp_path / "state" / "friendly-on_run1.state.json")
     mock_reset.assert_called_once_with(expected_state, None)
@@ -54,6 +76,7 @@ def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
     assert mock_show.call_count == 2
     mock_show.assert_called_with(expected_state, None)
     mock_feel.assert_called_once_with({"joy": 0.3}, expected_state, None)
+    assert agent.entered and agent.exited
 
 
 @patch("src.run.affectus_reset")
@@ -63,11 +86,10 @@ def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
 def test_run_cell_affectus_off_does_not_call_affectus(
     mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
-    mock_agent = MagicMock(return_value="hi")
-    mock_build_agent.return_value = mock_agent
+    mock_build_agent.return_value = FakeAgent(["hi"])
     script = [{"index": 1, "phase": "positive", "text": "u1"}]
 
-    run_cell("friendly", False, 1, script, tmp_path)
+    asyncio.run(run_cell("friendly", False, 1, script, tmp_path))
 
     mock_reset.assert_not_called()
     mock_show.assert_not_called()
@@ -81,14 +103,13 @@ def test_run_cell_affectus_off_does_not_call_affectus(
 def test_run_cell_writes_jsonl_transcript(
     mock_build_agent, mock_show, mock_feel, mock_reset, tmp_path
 ):
-    mock_agent = MagicMock(side_effect=["reply1", "reply2"])
-    mock_build_agent.return_value = mock_agent
+    mock_build_agent.return_value = FakeAgent(["reply1", "reply2"])
     script = [
         {"index": 1, "phase": "positive", "text": "u1"},
         {"index": 2, "phase": "positive", "text": "u2"},
     ]
 
-    out_path = run_cell("friendly", False, 1, script, tmp_path)
+    out_path = asyncio.run(run_cell("friendly", False, 1, script, tmp_path))
 
     assert out_path == tmp_path / "transcripts" / "friendly-off_run1.jsonl"
     lines = out_path.read_text(encoding="utf-8").strip().splitlines()
@@ -110,15 +131,14 @@ def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
 ):
     """The agent should receive the user message prefixed with the current
     affectus state so it sees the live, evolving emotion each turn."""
-    mock_agent = MagicMock(return_value='はい！')
-    mock_build_agent.return_value = mock_agent
+    agent = FakeAgent(["はい！"])
+    mock_build_agent.return_value = agent
     script = [{"index": 1, "phase": "positive", "text": "こんにちは"}]
 
-    run_cell("friendly", True, 1, script, tmp_path)
+    asyncio.run(run_cell("friendly", True, 1, script, tmp_path))
 
-    # The agent should have been called with the wrapped message
-    mock_agent.assert_called_once()
-    sent = mock_agent.call_args.args[0]
+    assert len(agent.calls) == 1
+    sent = agent.calls[0]
     assert "[現在のあなたの感情: いまは強い喜びを感じている。]" in sent
     assert "こんにちは" in sent
     # Transcript should preserve the ORIGINAL user text

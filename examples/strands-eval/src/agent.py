@@ -3,24 +3,27 @@
 
 Two backends, selected with the EVAL_BACKEND environment variable:
 
-- ``claude-cli`` (default): headless Claude Code (``claude -p``), billed to
-  the local user's Claude subscription instead of a metered API. The
-  conversation is threaded turn by turn via ``--resume``. The default system
-  prompt is REPLACED with the cell's persona prompt (``--system-prompt``) and
-  no setting sources are loaded (``--setting-sources ""``) so the operator's
-  personal CLAUDE.md, output styles and project settings cannot leak into the
-  experiment. Caveat: the CLI exposes no temperature control, so runs are not
-  deterministic.
+- ``claude-sdk`` (default): the Claude Agent SDK's streaming client
+  (``ClaudeSDKClient``). One cell = one long-lived CLI process holding one
+  conversation; each turn is a ``query()`` on that connection, so there is no
+  per-turn process spawn or history reload. Billed to the local Claude
+  subscription. Character isolation: the persona prompt REPLACES the default
+  system prompt, no setting sources are loaded (so the operator's CLAUDE.md /
+  output styles cannot leak in), ``tools=[]`` strips every tool definition,
+  and ``max_turns=1`` guarantees exactly one assistant response per turn.
+  Caveat: no temperature control (the CLI does not expose it).
 - ``bedrock``: the original Strands Agents + Amazon Bedrock path
-  (temperature=0, max_tokens=512), kept for reproducibility of runs recorded
-  before the backend switch.
+  (temperature=0, max_tokens=512), kept to reproduce runs recorded before the
+  backend switch.
+
+Both backends present the same interface to run.py: an async context manager
+whose instances are async callables (``reply = await agent(message)``).
 """
 
 from __future__ import annotations
 
-import json
+import asyncio
 import os
-import subprocess
 from pathlib import Path
 
 
@@ -34,56 +37,67 @@ def _load_prompt(name: str) -> str:
     return (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
 
 
-class ClaudeCLIAgent:
-    """One conversation over headless ``claude -p``, resumed each turn.
+class ClaudeSDKConversation:
+    """One conversation over a persistent Claude Agent SDK client."""
 
-    The first call creates a session; later calls pass ``--resume`` with the
-    session id returned by the previous call, so the CLI keeps the full
-    conversation history exactly like a chat backend would.
-    """
+    def __init__(self, system_prompt: str, model: str, cwd: str):
+        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-    def __init__(
-        self,
-        system_prompt: str,
-        model: str,
-        claude_bin: str = "claude",
-        cwd: str | None = None,
-        timeout_seconds: int = 600,
-    ):
         self.system_prompt = system_prompt
-        self.model = model
-        self.claude_bin = claude_bin
-        self.cwd = cwd
-        self.timeout_seconds = timeout_seconds
-        self.session_id: str | None = None
-
-    def __call__(self, message: str) -> str:
-        cmd = [
-            self.claude_bin,
-            "-p",
-            "--output-format", "json",
-            "--model", self.model,
-            "--system-prompt", self.system_prompt,
-            "--setting-sources", "",
-        ]
-        if self.session_id:
-            cmd += ["--resume", self.session_id]
-        cmd.append(message)
-        result = subprocess.run(
-            cmd, capture_output=True, text=True,
-            cwd=self.cwd, timeout=self.timeout_seconds,
+        self.options = ClaudeAgentOptions(
+            system_prompt=system_prompt,
+            model=model,
+            tools=[],
+            max_turns=1,
+            cwd=cwd,
+            # [] emits --setting-sources= (load nothing). None would OMIT the
+            # flag and fall back to the CLI default, which loads user/project
+            # settings — the operator's CLAUDE.md and output style would leak
+            # into the experiment (observed in the smoke test).
+            setting_sources=[],
+            env={"CLAUDE_CODE_MAX_OUTPUT_TOKENS": "512"},
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"claude -p failed: {result.stderr.strip()[:500]}")
-        data = json.loads(result.stdout)
-        if data.get("is_error"):
-            raise RuntimeError(f"claude -p returned error: {str(data.get('result'))[:500]}")
-        self.session_id = data.get("session_id", self.session_id)
-        return str(data.get("result", ""))
+        self._client = ClaudeSDKClient(options=self.options)
+
+    async def __aenter__(self) -> "ClaudeSDKConversation":
+        await self._client.connect()
+        return self
+
+    async def __aexit__(self, *exc) -> bool:
+        await self._client.disconnect()
+        return False
+
+    async def __call__(self, message: str) -> str:
+        from claude_agent_sdk import AssistantMessage, TextBlock
+
+        await self._client.query(message)
+        parts: list[str] = []
+        async for msg in self._client.receive_response():
+            if isinstance(msg, AssistantMessage):
+                for block in msg.content:
+                    if isinstance(block, TextBlock):
+                        parts.append(block.text)
+        return "".join(parts).strip()
+
+
+class SyncAgentAdapter:
+    """Wrap a synchronous agent callable in the async interface."""
+
+    def __init__(self, sync_agent):
+        self._agent = sync_agent
+
+    async def __aenter__(self) -> "SyncAgentAdapter":
+        return self
+
+    async def __aexit__(self, *exc) -> bool:
+        return False
+
+    async def __call__(self, message: str) -> str:
+        return str(await asyncio.to_thread(self._agent, message))
 
 
 def build_agent(personality: str, affectus_on: bool):
-    """Build an agent callable for the (personality, affectus_on) cell.
+    """Build an agent for the (personality, affectus_on) cell.
 
     When affectus_on is True, the affectus block (Plutchik relational reading
     + delta-reporting protocol) is appended to the system prompt. The agent's
@@ -105,14 +119,13 @@ def build_agent(personality: str, affectus_on: bool):
     else:
         system_prompt = base.rstrip()
 
-    backend = os.environ.get("EVAL_BACKEND", "claude-cli")
+    backend = os.environ.get("EVAL_BACKEND", "claude-sdk")
 
-    if backend == "claude-cli":
+    if backend == "claude-sdk":
         SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-        return ClaudeCLIAgent(
+        return ClaudeSDKConversation(
             system_prompt=system_prompt,
             model=os.environ.get("EVAL_CLAUDE_MODEL", "claude-sonnet-4-6"),
-            claude_bin=os.environ.get("EVAL_CLAUDE_BIN", "claude"),
             cwd=str(SESSIONS_DIR),
         )
 
@@ -126,6 +139,6 @@ def build_agent(personality: str, affectus_on: bool):
             temperature=0.0,
             max_tokens=512,
         )
-        return Agent(model=model, system_prompt=system_prompt, tools=[])
+        return SyncAgentAdapter(Agent(model=model, system_prompt=system_prompt, tools=[]))
 
     raise ValueError(f"unknown EVAL_BACKEND: {backend!r}")

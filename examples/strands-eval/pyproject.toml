@@ -11,6 +11,7 @@ dependencies = [
     "strands-agents>=1.0",
     "boto3>=1.35",
     "matplotlib>=3.8",
+    "claude-agent-sdk>=0.2.134",
 ]
 
 [project.optional-dependencies]

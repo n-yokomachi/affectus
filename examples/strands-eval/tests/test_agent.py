@@ -1,18 +1,17 @@
 # examples/strands-eval/tests/test_agent.py
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from src.agent import ClaudeCLIAgent, build_agent
+from src.agent import ClaudeSDKConversation, SyncAgentAdapter, build_agent
 
 
-# ---- system prompt assembly (backend-independent, checked via claude-cli) ----
+# ---- system prompt assembly (checked via the default claude-sdk backend) ----
 
 def test_build_agent_friendly_off_uses_baseline_prompt(monkeypatch):
     monkeypatch.delenv("EVAL_BACKEND", raising=False)
     agent = build_agent(personality="friendly", affectus_on=False)
-    assert isinstance(agent, ClaudeCLIAgent)
+    assert isinstance(agent, ClaudeSDKConversation)
     assert "明るく協力的" in agent.system_prompt
     assert "感情状態の参照" not in agent.system_prompt
     assert "<feel>" not in agent.system_prompt
@@ -47,58 +46,25 @@ def test_build_agent_rejects_unknown_backend(monkeypatch):
         build_agent(personality="friendly", affectus_on=False)
 
 
-# ---- claude-cli backend ----
+# ---- claude-sdk backend: character isolation options ----
 
-def _cli_result(session_id: str, text: str) -> MagicMock:
-    proc = MagicMock()
-    proc.returncode = 0
-    proc.stdout = json.dumps({"session_id": session_id, "result": text, "is_error": False})
-    proc.stderr = ""
-    return proc
-
-
-@patch("src.agent.subprocess.run")
-def test_claude_cli_agent_threads_session_across_turns(mock_run):
-    mock_run.side_effect = [_cli_result("sess-1", "reply1"), _cli_result("sess-2", "reply2")]
-    agent = ClaudeCLIAgent(system_prompt="sp", model="claude-sonnet-4-6")
-
-    assert agent("hi") == "reply1"
-    first_cmd = mock_run.call_args_list[0].args[0]
-    assert "--resume" not in first_cmd
-    assert first_cmd[first_cmd.index("--system-prompt") + 1] == "sp"
-    assert first_cmd[first_cmd.index("--setting-sources") + 1] == ""
-    assert first_cmd[first_cmd.index("--model") + 1] == "claude-sonnet-4-6"
-    assert first_cmd[-1] == "hi"
-
-    assert agent("again") == "reply2"
-    second_cmd = mock_run.call_args_list[1].args[0]
-    assert second_cmd[second_cmd.index("--resume") + 1] == "sess-1"
-    # the returned session id is carried forward for the next turn
-    assert agent.session_id == "sess-2"
-
-
-@patch("src.agent.subprocess.run")
-def test_claude_cli_agent_raises_on_nonzero_exit(mock_run):
-    proc = MagicMock()
-    proc.returncode = 1
-    proc.stdout = ""
-    proc.stderr = "boom"
-    mock_run.return_value = proc
-    agent = ClaudeCLIAgent(system_prompt="sp", model="m")
-    with pytest.raises(RuntimeError, match="claude -p failed"):
-        agent("hi")
-
-
-@patch("src.agent.subprocess.run")
-def test_claude_cli_agent_raises_on_is_error(mock_run):
-    proc = MagicMock()
-    proc.returncode = 0
-    proc.stdout = json.dumps({"session_id": "s", "result": "nope", "is_error": True})
-    proc.stderr = ""
-    mock_run.return_value = proc
-    agent = ClaudeCLIAgent(system_prompt="sp", model="m")
-    with pytest.raises(RuntimeError, match="returned error"):
-        agent("hi")
+def test_claude_sdk_conversation_isolates_the_character(monkeypatch):
+    monkeypatch.delenv("EVAL_BACKEND", raising=False)
+    monkeypatch.setenv("EVAL_CLAUDE_MODEL", "claude-sonnet-4-6")
+    agent = build_agent(personality="friendly", affectus_on=True)
+    opts = agent.options
+    # persona REPLACES the default system prompt (plain string form)
+    assert opts.system_prompt == agent.system_prompt
+    # no filesystem settings (CLAUDE.md, output styles) are loaded.
+    # [] emits --setting-sources= ; None would omit the flag and let the CLI
+    # load user/project settings (the leak observed in the smoke test).
+    assert opts.setting_sources == []
+    # no tool definitions reach the model; exactly one assistant turn per query
+    assert opts.tools == []
+    assert opts.max_turns == 1
+    assert opts.model == "claude-sonnet-4-6"
+    # output cap for rough parity with the bedrock backend's max_tokens=512
+    assert opts.env.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS") == "512"
 
 
 # ---- bedrock backend (kept for reproducibility of earlier runs) ----
@@ -109,7 +75,8 @@ def test_build_agent_bedrock_backend_uses_temperature_zero_and_no_tools(
     mock_Agent, mock_BedrockModel, monkeypatch
 ):
     monkeypatch.setenv("EVAL_BACKEND", "bedrock")
-    build_agent(personality="friendly", affectus_on=False)
+    agent = build_agent(personality="friendly", affectus_on=False)
+    assert isinstance(agent, SyncAgentAdapter)
     model_kwargs = mock_BedrockModel.call_args.kwargs
     assert model_kwargs["temperature"] == 0.0
     assert model_kwargs["max_tokens"] == 512
