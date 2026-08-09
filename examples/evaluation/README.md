@@ -1,4 +1,4 @@
-# strands-eval: affectus 効果検証リグ
+# evaluation: affectus 効果検証リグ
 
 `affectus` を導入したエージェントの応答が、AWS Comprehend の極性スコアの時系列で計測可能に変化するかを、対照実験で確認する最小リグ。
 
@@ -30,7 +30,7 @@
 ## セットアップ
 
 ```bash
-cd examples/strands-eval
+cd examples/evaluation
 pip install -e ".[dev]"
 ```
 

@@ -1,4 +1,4 @@
-# examples/strands-eval/tests/test_agent.py
+# examples/evaluation/tests/test_agent.py
 from unittest.mock import patch
 
 import pytest

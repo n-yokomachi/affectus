@@ -1,4 +1,4 @@
-# examples/strands-eval/src/agent.py
+# examples/evaluation/src/agent.py
 """Build a conversational agent for a given (personality, affectus_on) cell.
 
 Two backends, selected with the EVAL_BACKEND environment variable:
