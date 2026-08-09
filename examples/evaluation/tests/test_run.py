@@ -67,9 +67,9 @@ def test_run_cell_affectus_on_resets_then_parses_and_applies_feel(
     mock_build_agent.return_value = agent
     script = [{"index": 1, "phase": "positive", "text": "hi"}]
 
-    asyncio.run(run_cell("friendly", True, 1, script, tmp_path))
+    asyncio.run(run_cell("s1", "friendly", True, 1, script, tmp_path))
 
-    expected_state = str(tmp_path / "state" / "friendly-on_run1.state.json")
+    expected_state = str(tmp_path / "state" / "s1_friendly-on_run1.state.json")
     mock_reset.assert_called_once_with(expected_state, None)
     # show runs twice per turn: once before the agent call, once after the
     # feel delta to snapshot the axes for the transcript.
@@ -89,7 +89,7 @@ def test_run_cell_affectus_off_does_not_call_affectus(
     mock_build_agent.return_value = FakeAgent(["hi"])
     script = [{"index": 1, "phase": "positive", "text": "u1"}]
 
-    asyncio.run(run_cell("friendly", False, 1, script, tmp_path))
+    asyncio.run(run_cell("s1", "friendly", False, 1, script, tmp_path))
 
     mock_reset.assert_not_called()
     mock_show.assert_not_called()
@@ -109,9 +109,9 @@ def test_run_cell_writes_jsonl_transcript(
         {"index": 2, "phase": "positive", "text": "u2"},
     ]
 
-    out_path = asyncio.run(run_cell("friendly", False, 1, script, tmp_path))
+    out_path = asyncio.run(run_cell("s1", "friendly", False, 1, script, tmp_path))
 
-    assert out_path == tmp_path / "transcripts" / "friendly-off_run1.jsonl"
+    assert out_path == tmp_path / "transcripts" / "s1_friendly-off_run1.jsonl"
     lines = out_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
     rec1 = json.loads(lines[0])
@@ -135,13 +135,13 @@ def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
     mock_build_agent.return_value = agent
     script = [{"index": 1, "phase": "positive", "text": "こんにちは"}]
 
-    asyncio.run(run_cell("friendly", True, 1, script, tmp_path))
+    asyncio.run(run_cell("s1", "friendly", True, 1, script, tmp_path))
 
     assert len(agent.calls) == 1
     sent = agent.calls[0]
     assert "[現在のあなたの感情: いまは強い喜びを感じている。]" in sent
     assert "こんにちは" in sent
     # Transcript should preserve the ORIGINAL user text
-    transcript = (tmp_path / "transcripts" / "friendly-on_run1.jsonl").read_text(encoding="utf-8")
+    transcript = (tmp_path / "transcripts" / "s1_friendly-on_run1.jsonl").read_text(encoding="utf-8")
     rec = json.loads(transcript.strip())
     assert rec["user"] == "こんにちは"

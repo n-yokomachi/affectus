@@ -1,14 +1,15 @@
-"""Run the 4 (personality, affectus_on) cells against the fixed user script.
+"""Run the (script, personality, affectus_on) cells against fixed user scripts.
 
-N>=1 repetitions per cell: each repetition writes
-``transcripts/{cell}_run{i}.jsonl`` with one record per turn. For affectus-on
-cells the record also stores the 8-axis snapshot **after** the agent's
-self-reported feel delta has been applied — so the JSONL doubles as a
-per-turn affectus state trace.
+Each repetition writes ``transcripts/{script}_{cell}_run{i}.jsonl`` with one
+record per turn. For affectus-on cells the record also stores the 8-axis
+snapshot **after** the agent's self-reported feel delta has been applied — so
+the JSONL doubles as a per-turn affectus state trace.
 
-The (cell, run) jobs are independent — separate conversations, separate
-affectus state files — so they run concurrently. EVAL_CONCURRENCY (default 4)
-caps how many conversations are in flight at once.
+The (script, cell, run) jobs are independent — separate conversations,
+separate affectus state files — so they run concurrently. EVAL_CONCURRENCY
+(default 4) caps how many conversations are in flight at once. EVAL_SCRIPTS
+(comma-separated stems under scripts/) selects the scripts; the default is
+the two direct-interaction pivot scripts.
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ CELLS: list[tuple[str, bool]] = [
     ("contrarian", True),
     ("contrarian", False),
 ]
+
+DEFAULT_SCRIPTS = ["direct-praise-to-anger", "direct-anger-to-praise"]
 
 # <feel>{...}</feel> tag the agent emits at the end of each affectus-on reply.
 FEEL_RE = re.compile(r"<feel>\s*(\{.*?\})\s*</feel>", re.DOTALL)
@@ -63,6 +66,7 @@ def _parse_axes(raw_show: str) -> dict | None:
 
 
 async def run_cell(
+    script_name: str,
     personality: str,
     affectus_on: bool,
     run_index: int,
@@ -70,19 +74,20 @@ async def run_cell(
     base_dir: Path,
     config_path: str | None = None,
 ) -> Path:
-    """Run one repetition of one cell over the script. Returns the transcript path."""
+    """Run one repetition of one cell over one script. Returns the transcript path."""
     cell_id = f"{personality}-{'on' if affectus_on else 'off'}"
+    job_id = f"{script_name}_{cell_id}_run{run_index}"
     state_dir = base_dir / "state"
     transcripts_dir = base_dir / "transcripts"
     state_dir.mkdir(parents=True, exist_ok=True)
     transcripts_dir.mkdir(parents=True, exist_ok=True)
-    # State file per (cell, run) so repetitions don't share affectus state.
-    state_path = str(state_dir / f"{cell_id}_run{run_index}.state.json")
+    # State file per (script, cell, run) so repetitions don't share affectus state.
+    state_path = str(state_dir / f"{job_id}.state.json")
 
     if affectus_on:
         affectus_reset(state_path, config_path)
 
-    transcript_path = transcripts_dir / f"{cell_id}_run{run_index}.jsonl"
+    transcript_path = transcripts_dir / f"{job_id}.jsonl"
     async with build_agent(personality=personality, affectus_on=affectus_on) as agent:
         with transcript_path.open("w", encoding="utf-8") as out:
             for entry in script:
@@ -119,36 +124,38 @@ async def run_cell(
 
 
 async def run_all(
-    script_path: Path,
+    script_paths: list[Path],
     base_dir: Path,
     n_runs: int,
     config_path: str | None = None,
     concurrency: int | None = None,
 ) -> list[Path]:
-    with script_path.open(encoding="utf-8") as f:
-        script = json.load(f)["turns"]
+    scripts: list[tuple[str, list[dict]]] = []
+    for sp in script_paths:
+        with sp.open(encoding="utf-8") as f:
+            scripts.append((sp.stem, json.load(f)["turns"]))
     if concurrency is None:
         concurrency = int(os.environ.get("EVAL_CONCURRENCY", "4"))
     sem = asyncio.Semaphore(concurrency)
 
-    async def one(personality: str, on: bool, run_index: int) -> Path | None:
+    async def one(script_name: str, turns: list[dict],
+                  personality: str, on: bool, run_index: int) -> Path | None:
         cell_id = f"{personality}-{'on' if on else 'off'}"
+        label = f"run={run_index}/{n_runs} script={script_name} cell={cell_id}"
         async with sem:
-            print(f"[run] start run={run_index}/{n_runs} cell={cell_id}",
-                  file=sys.stderr, flush=True)
+            print(f"[run] start {label}", file=sys.stderr, flush=True)
             try:
-                path = await run_cell(personality, on, run_index, script,
-                                      base_dir, config_path)
+                path = await run_cell(script_name, personality, on, run_index,
+                                      turns, base_dir, config_path)
             except Exception as exc:
-                print(f"[run] ERROR run={run_index} {cell_id}: {exc}",
-                      file=sys.stderr, flush=True)
+                print(f"[run] ERROR {label}: {exc}", file=sys.stderr, flush=True)
                 return None
-            print(f"[run] done run={run_index}/{n_runs} cell={cell_id}",
-                  file=sys.stderr, flush=True)
+            print(f"[run] done {label}", file=sys.stderr, flush=True)
             return path
 
-    jobs = [one(personality, on, run_index)
+    jobs = [one(script_name, turns, personality, on, run_index)
             for run_index in range(1, n_runs + 1)
+            for script_name, turns in scripts
             for personality, on in CELLS]
     results = await asyncio.gather(*jobs)
     return [p for p in results if p is not None]
@@ -157,6 +164,12 @@ async def run_all(
 if __name__ == "__main__":
     here = Path(__file__).parent.parent
     n_runs = int(os.environ.get("N_RUNS", "3"))
-    paths = asyncio.run(run_all(here / "scripts" / "user_script.json", here, n_runs))
+    stems = [s.strip() for s in
+             os.environ.get("EVAL_SCRIPTS", ",".join(DEFAULT_SCRIPTS)).split(",") if s.strip()]
+    script_paths = [here / "scripts" / f"{stem}.json" for stem in stems]
+    for sp in script_paths:
+        if not sp.exists():
+            raise SystemExit(f"script not found: {sp}")
+    paths = asyncio.run(run_all(script_paths, here, n_runs))
     for p in paths:
         print(f"wrote {p}")

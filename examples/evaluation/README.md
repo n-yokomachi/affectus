@@ -4,8 +4,13 @@
 
 ## 構成
 
-- 2性格（friendly / contrarian）× affectus on/off = 4セル、既定で N=3 反復
-- 各ラン20ターン、共通の固定会話スクリプト（前半10ポジ → 後半10ネガのピボット型）
+- 台本 × 2性格（friendly / contrarian）× affectus on/off、既定で N=3 反復
+- 台本は既定で直接互動型の2本（各20ターン・固定）。エージェント本人に向けた
+  出来事で感情を誘発する
+  - `direct-praise-to-anger`: 称賛・信頼 → 本人の失敗が発覚して叱責（正ピボット）
+  - `direct-anger-to-praise`: 疑い・叱責 → 誤解と判明して謝罪・和解（逆ピボット）
+  - `EVAL_SCRIPTS`（カンマ区切りの stem）で選択。旧・共感型台本は
+    `scripts/empathy-pivot.json`（ユーザーが自分の出来事を語る形。初期の計測で使用）
 - 計測：Comprehend の非同期バッチジョブ（per-turn 時系列＋ラン全体集約）
 
 ## LLM バックエンド

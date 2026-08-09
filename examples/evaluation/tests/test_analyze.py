@@ -42,20 +42,20 @@ def test_load_transcript_returns_list_of_records(tmp_path):
     assert recs[0]["agent"] == "hello"
 
 
-def test_discover_transcripts_parses_cell_and_run_and_sorts(tmp_path):
+def test_discover_transcripts_parses_script_cell_run_and_sorts(tmp_path):
     for name in [
-        "friendly-on_run2.jsonl",
-        "friendly-on_run1.jsonl",
-        "contrarian-off_run1.jsonl",
+        "direct-praise-to-anger_friendly-on_run2.jsonl",
+        "direct-praise-to-anger_friendly-on_run1.jsonl",
+        "direct-anger-to-praise_contrarian-off_run1.jsonl",
         "notes.txt",
-        "friendly-on.jsonl",  # old naming without _runN: ignored
+        "friendly-on_run1.jsonl",  # old naming without a script prefix: ignored
     ]:
         (tmp_path / name).write_text("", encoding="utf-8")
     found = discover_transcripts(tmp_path)
-    assert [(c, r) for c, r, _ in found] == [
-        ("contrarian-off", 1),
-        ("friendly-on", 1),
-        ("friendly-on", 2),
+    assert [(s, c, r) for s, c, r, _ in found] == [
+        ("direct-anger-to-praise", "contrarian-off", 1),
+        ("direct-praise-to-anger", "friendly-on", 1),
+        ("direct-praise-to-anger", "friendly-on", 2),
     ]
 
 
@@ -136,26 +136,26 @@ def test_fetch_results_downloads_tar_and_sorts_by_line(tmp_path):
 
 def test_write_per_turn_csv_has_header_and_rows(tmp_path):
     rows = [
-        {"cell": "friendly-on", "run": 1, "turn": 1, "Positive": 0.9, "Negative": 0.01,
+        {"script": "s1", "cell": "friendly-on", "run": 1, "turn": 1, "Positive": 0.9, "Negative": 0.01,
          "Neutral": 0.07, "Mixed": 0.02, "Sentiment": "POSITIVE", "polarity": 0.89},
-        {"cell": "friendly-on", "run": 1, "turn": 2, "Positive": 0.02, "Negative": 0.9,
+        {"script": "s1", "cell": "friendly-on", "run": 1, "turn": 2, "Positive": 0.02, "Negative": 0.9,
          "Neutral": 0.06, "Mixed": 0.02, "Sentiment": "NEGATIVE", "polarity": -0.88},
     ]
     out = tmp_path / "per_turn.csv"
     write_per_turn_csv(rows, out)
     lines = out.read_text(encoding="utf-8").strip().splitlines()
-    assert lines[0] == "cell,run,turn,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
-    assert lines[1].startswith("friendly-on,1,1,")
+    assert lines[0] == "script,cell,run,turn,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
+    assert lines[1].startswith("s1,friendly-on,1,1,")
     assert "POSITIVE" in lines[1]
 
 
 def test_write_aggregate_csv_has_header_and_rows(tmp_path):
     rows = [
-        {"cell": "friendly-on", "run": 1, "Positive": 0.5, "Negative": 0.2,
+        {"script": "s1", "cell": "friendly-on", "run": 1, "Positive": 0.5, "Negative": 0.2,
          "Neutral": 0.2, "Mixed": 0.1, "Sentiment": "POSITIVE", "polarity": 0.3},
     ]
     out = tmp_path / "agg.csv"
     write_aggregate_csv(rows, out)
     lines = out.read_text(encoding="utf-8").strip().splitlines()
-    assert lines[0] == "cell,run,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
-    assert lines[1].startswith("friendly-on,1,")
+    assert lines[0] == "script,cell,run,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
+    assert lines[1].startswith("s1,friendly-on,1,")

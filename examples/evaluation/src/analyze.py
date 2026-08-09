@@ -2,10 +2,10 @@
 
 Outputs:
 
-- ``per_turn_scores.csv``: every (cell, run, turn) row with Comprehend scores
-- ``aggregate_scores.csv``: every (cell, run) full-conversation row
-- ``polarity-curves.png``: mean polarity ±min/max band per cell (4 panels)
-- ``affectus-8axis.png``: mean 8-axis trajectories per affectus-on cell
+- ``per_turn_scores.csv``: every (script, cell, run, turn) row with Comprehend scores
+- ``aggregate_scores.csv``: every (script, cell, run) full-conversation row
+- ``polarity-curves-{script}.png``: mean polarity ±min/max band per cell
+- ``affectus-8axis-{script}.png``: mean 8-axis trajectories per affectus-on cell
 - ``comprehend_jobs.json``: JobIds for traceability / console screenshots
 """
 
@@ -45,18 +45,20 @@ def polarity_from(scores: dict) -> float:
     return float(scores["Positive"]) - float(scores["Negative"])
 
 
-_RUN_RE = re.compile(r"^(?P<cell>[a-z]+-(?:on|off))_run(?P<run>\d+)\.jsonl$")
+_RUN_RE = re.compile(
+    r"^(?P<script>[a-z0-9-]+)_(?P<cell>[a-z]+-(?:on|off))_run(?P<run>\d+)\.jsonl$"
+)
 
 
-def discover_transcripts(transcripts_dir: Path) -> list[tuple[str, int, Path]]:
-    """Return [(cell_id, run_index, path), ...] sorted by (cell, run)."""
-    found: list[tuple[str, int, Path]] = []
+def discover_transcripts(transcripts_dir: Path) -> list[tuple[str, str, int, Path]]:
+    """Return [(script, cell_id, run_index, path), ...] sorted by (script, cell, run)."""
+    found: list[tuple[str, str, int, Path]] = []
     for p in sorted(transcripts_dir.glob("*_run*.jsonl")):
         m = _RUN_RE.match(p.name)
         if not m:
             continue
-        found.append((m.group("cell"), int(m.group("run")), p))
-    found.sort(key=lambda t: (t[0], t[1]))
+        found.append((m.group("script"), m.group("cell"), int(m.group("run")), p))
+    found.sort(key=lambda t: (t[0], t[1], t[2]))
     return found
 
 
@@ -127,7 +129,7 @@ def fetch_results(s3, output_uri: str, local_dir: Path) -> list[dict]:
 
 
 def write_per_turn_csv(rows: list[dict], path: Path) -> None:
-    fields = ["cell", "run", "turn", "Positive", "Negative", "Neutral", "Mixed", "Sentiment", "polarity"]
+    fields = ["script", "cell", "run", "turn", "Positive", "Negative", "Neutral", "Mixed", "Sentiment", "polarity"]
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
@@ -136,7 +138,7 @@ def write_per_turn_csv(rows: list[dict], path: Path) -> None:
 
 
 def write_aggregate_csv(rows: list[dict], path: Path) -> None:
-    fields = ["cell", "run", "Positive", "Negative", "Neutral", "Mixed", "Sentiment", "polarity"]
+    fields = ["script", "cell", "run", "Positive", "Negative", "Neutral", "Mixed", "Sentiment", "polarity"]
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
@@ -236,25 +238,26 @@ def main(base_dir: Path) -> None:
     if not discovered:
         raise SystemExit(f"no transcripts found in {transcripts_dir}")
 
-    # Group per cell so we keep the (cell, run) ordering deterministic.
+    # Group per (script, cell) so the ordering stays deterministic.
     per_turn_texts: list[str] = []
-    per_turn_index: list[tuple[str, int, int]] = []  # (cell, run, turn)
+    per_turn_index: list[tuple[str, str, int, int]] = []  # (script, cell, run, turn)
     aggregate_texts: list[str] = []
-    aggregate_index: list[tuple[str, int]] = []  # (cell, run)
-    affectus_traces: dict[str, dict[int, dict[int, dict[str, float]]]] = {}
-    # affectus_traces[cell][turn][run] = {axis: value}
+    aggregate_index: list[tuple[str, str, int]] = []  # (script, cell, run)
+    affectus_traces: dict[str, dict[str, dict[int, dict[int, dict[str, float]]]]] = {}
+    # affectus_traces[script][cell][turn][run] = {axis: value}
 
-    for cell, run_index, path in discovered:
+    for script, cell, run_index, path in discovered:
         recs = load_transcript(path)
         replies = [r["agent"] for r in recs]
         for rec, reply in zip(recs, replies):
             per_turn_texts.append(reply)
-            per_turn_index.append((cell, run_index, rec["turn"]))
+            per_turn_index.append((script, cell, run_index, rec["turn"]))
             if rec.get("axes"):
-                affectus_traces.setdefault(cell, {}).setdefault(rec["turn"], {})[run_index] = rec["axes"]
+                affectus_traces.setdefault(script, {}).setdefault(cell, {}).setdefault(
+                    rec["turn"], {})[run_index] = rec["axes"]
         full = " ".join(replies)
         aggregate_texts.append(_truncate_to_bytes(full, _COMPREHEND_DETECT_MAX_BYTES))
-        aggregate_index.append((cell, run_index))
+        aggregate_index.append((script, cell, run_index))
 
     per_turn_job = os.environ.get("PER_TURN_JOB_ID")
     if per_turn_job:
@@ -284,28 +287,33 @@ def main(base_dir: Path) -> None:
         raise RuntimeError(f"aggregate output count mismatch: got {len(aggregate_raw)}, expected {len(aggregate_index)}")
 
     per_turn_rows: list[dict] = []
-    for (cell, run, turn), result in zip(per_turn_index, per_turn_raw):
+    for (script, cell, run, turn), result in zip(per_turn_index, per_turn_raw):
         scores = result["SentimentScore"]
         per_turn_rows.append({
-            "cell": cell, "run": run, "turn": turn,
+            "script": script, "cell": cell, "run": run, "turn": turn,
             "Sentiment": result["Sentiment"], **scores,
             "polarity": polarity_from(scores),
         })
 
     aggregate_rows: list[dict] = []
-    for (cell, run), result in zip(aggregate_index, aggregate_raw):
+    for (script, cell, run), result in zip(aggregate_index, aggregate_raw):
         scores = result["SentimentScore"]
         aggregate_rows.append({
-            "cell": cell, "run": run,
+            "script": script, "cell": cell, "run": run,
             "Sentiment": result["Sentiment"], **scores,
             "polarity": polarity_from(scores),
         })
 
     write_per_turn_csv(per_turn_rows, results_dir / "per_turn_scores.csv")
     write_aggregate_csv(aggregate_rows, results_dir / "aggregate_scores.csv")
-    plot_polarity_curves(per_turn_rows, results_dir / "polarity-curves.png")
-    if affectus_traces:
-        plot_8axis_trajectories(affectus_traces, results_dir / "affectus-8axis.png")
+    scripts = sorted({r["script"] for r in per_turn_rows})
+    for script in scripts:
+        rows = [r for r in per_turn_rows if r["script"] == script]
+        plot_polarity_curves(rows, results_dir / f"polarity-curves-{script}.png")
+        if affectus_traces.get(script):
+            plot_8axis_trajectories(
+                affectus_traces[script], results_dir / f"affectus-8axis-{script}.png"
+            )
 
     with (results_dir / "comprehend_jobs.json").open("w", encoding="utf-8") as f:
         json.dump(
@@ -321,9 +329,10 @@ def main(base_dir: Path) -> None:
 
     print(f"wrote {results_dir / 'per_turn_scores.csv'}")
     print(f"wrote {results_dir / 'aggregate_scores.csv'}")
-    print(f"wrote {results_dir / 'polarity-curves.png'}")
-    if affectus_traces:
-        print(f"wrote {results_dir / 'affectus-8axis.png'}")
+    for script in scripts:
+        print(f"wrote {results_dir / f'polarity-curves-{script}.png'}")
+        if affectus_traces.get(script):
+            print(f"wrote {results_dir / f'affectus-8axis-{script}.png'}")
     print(f"wrote {results_dir / 'comprehend_jobs.json'}")
 
 
