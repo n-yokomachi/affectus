@@ -68,14 +68,14 @@ def test_claude_sdk_conversation_isolates_the_character(monkeypatch):
 
 
 # ---- bedrock backend (kept for reproducibility of earlier runs) ----
+# strands-agents is an optional extra (.[bedrock]); skipped when absent.
 
-@patch("strands.models.BedrockModel")
-@patch("strands.Agent")
-def test_build_agent_bedrock_backend_uses_temperature_zero_and_no_tools(
-    mock_Agent, mock_BedrockModel, monkeypatch
-):
+def test_build_agent_bedrock_backend_uses_temperature_zero_and_no_tools(monkeypatch):
+    pytest.importorskip("strands")
     monkeypatch.setenv("EVAL_BACKEND", "bedrock")
-    agent = build_agent(personality="friendly", affectus_on=False)
+    with patch("strands.models.BedrockModel") as mock_BedrockModel, \
+         patch("strands.Agent") as mock_Agent:
+        agent = build_agent(personality="friendly", affectus_on=False)
     assert isinstance(agent, SyncAgentAdapter)
     model_kwargs = mock_BedrockModel.call_args.kwargs
     assert model_kwargs["temperature"] == 0.0

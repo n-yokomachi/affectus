@@ -23,7 +23,8 @@
   ⚠ temperature は指定できないため決定論モードはない
   - 環境変数: `EVAL_CLAUDE_MODEL`（既定 `claude-sonnet-4-6`）、`EVAL_CONCURRENCY`
 - `bedrock`: Strands Agents + Amazon Bedrock（temperature=0、max_tokens=512）。
-  バックエンド切り替え前に記録したランの再現用
+  バックエンド切り替え前に記録したランの再現用。strands-agents は
+  オプション依存（`.[bedrock]`）
   - 環境変数: `AWS_REGION`、`BEDROCK_MODEL_ID`（既定は Claude Sonnet 系の
     cross-region inference profile）
 
@@ -31,7 +32,7 @@
 
 ```bash
 cd examples/evaluation
-pip install -e ".[dev]"
+pip install -e ".[dev]"          # bedrock バックエンドも使うなら ".[dev,bedrock]"
 ```
 
 前提：
