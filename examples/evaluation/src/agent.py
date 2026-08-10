@@ -68,15 +68,22 @@ class ClaudeSDKConversation:
         return False
 
     async def __call__(self, message: str) -> str:
-        from claude_agent_sdk import AssistantMessage, TextBlock
+        from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock
 
         await self._client.query(message)
         parts: list[str] = []
+        error: str | None = None
         async for msg in self._client.receive_response():
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         parts.append(block.text)
+            elif isinstance(msg, ResultMessage) and getattr(msg, "is_error", False):
+                error = str(getattr(msg, "result", "") or "unknown error")
+        if error is not None:
+            # Fail loudly instead of letting an error banner (e.g. a usage-limit
+            # message) masquerade as the agent's reply in the transcript.
+            raise RuntimeError(f"claude-sdk returned an error result: {error[:300]}")
         return "".join(parts).strip()
 
 
