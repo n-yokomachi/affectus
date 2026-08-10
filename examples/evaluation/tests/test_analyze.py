@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.analyze import (
+    detect_axes_order,
     BUCKET,
     _flatten_for_one_doc_per_line,
     _truncate_to_bytes,
@@ -159,3 +160,16 @@ def test_write_aggregate_csv_has_header_and_rows(tmp_path):
     lines = out.read_text(encoding="utf-8").strip().splitlines()
     assert lines[0] == "script,cell,run,Positive,Negative,Neutral,Mixed,Sentiment,polarity"
     assert lines[1].startswith("s1,friendly-on,1,")
+
+
+def test_detect_axes_order_uses_first_record_with_axes():
+    recs = [
+        {"turn": 1, "axes": None},
+        {"turn": 2, "axes": {"valence": 0.1, "arousal": 0.3}},
+        {"turn": 3, "axes": {"arousal": 0.2, "valence": 0.0}},
+    ]
+    assert detect_axes_order(recs) == ["valence", "arousal"]
+
+
+def test_detect_axes_order_empty_when_no_axes():
+    assert detect_axes_order([{"turn": 1, "axes": None}]) == []

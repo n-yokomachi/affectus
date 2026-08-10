@@ -50,10 +50,23 @@ pip install -e ".[dev]"          # bedrock バックエンドも使うなら ".[
   DataAccessRole は `COMPREHEND_BUCKET` / `COMPREHEND_ROLE_ARN` で上書き可）
 - bedrock バックエンド利用時のみ Bedrock へのアクセス権が必要
 
+## 感情モデルの切り替え
+
+計測対象の感情モデルは2つの環境変数で切り替える（既定は Plutchik）。
+
+- `EVAL_EMOTION_MODEL`: プロンプトブロックの選択。`plutchik`（既定・
+  `prompts/affectus-block.md`）以外は `prompts/affectus-block-{model}.md` を
+  読む（例: `russell` → `affectus-block-russell.md`）
+- `AFFECTUS_CONFIG`: affectus 側の設定。モデルに合わせて
+  `internal/engine/{model}.default.yaml` を指すこと
+
+analyze は状態トレースの軸名を動的に検出する。軸が valence/arousal のときは
+平面軌跡図（`va-trajectory-{script}.png`）も出力する。
+
 ## 実行
 
 ```bash
-python -m src.run        # 4セル × N_RUNS を順次実行、transcripts/ に出力
+python -m src.run        # (台本×セル) × N_RUNS を並列実行、transcripts/ に出力
 python -m src.analyze    # transcripts → Comprehend → results/ に CSV と図
 ```
 

@@ -99,12 +99,16 @@ class SyncAgentAdapter:
 def build_agent(personality: str, affectus_on: bool):
     """Build an agent for the (personality, affectus_on) cell.
 
-    When affectus_on is True, the affectus block (Plutchik relational reading
-    + delta-reporting protocol) is appended to the system prompt. The agent's
-    per-turn emotion state is NOT included in the system prompt; the
-    orchestrator (run.py) prepends a `[現在のあなたの感情: ...]` line to each
-    user message at run time. This way the LLM sees the live, evolving state
-    each turn instead of a frozen snapshot.
+    When affectus_on is True, an affectus block (state-reading + delta-report
+    protocol) is appended to the system prompt. EVAL_EMOTION_MODEL selects
+    which block: "plutchik" (default) uses prompts/affectus-block.md, any
+    other value uses prompts/affectus-block-{model}.md. The matching affectus
+    config must be supplied separately via the AFFECTUS_CONFIG env var.
+
+    The agent's per-turn emotion state is NOT included in the system prompt;
+    the orchestrator (run.py) prepends a `[現在のあなたの感情: ...]` line to
+    each user message at run time. This way the LLM sees the live, evolving
+    state each turn instead of a frozen snapshot.
 
     The agent emits `<feel>{...}</feel>` deltas as part of its reply text;
     the orchestrator parses and applies them. No tools are registered — keeps
@@ -115,7 +119,9 @@ def build_agent(personality: str, affectus_on: bool):
 
     base = _load_prompt(personality)
     if affectus_on:
-        system_prompt = base.rstrip() + "\n\n" + _load_prompt("affectus-block")
+        emotion_model = os.environ.get("EVAL_EMOTION_MODEL", "plutchik")
+        block = "affectus-block" if emotion_model == "plutchik" else f"affectus-block-{emotion_model}"
+        system_prompt = base.rstrip() + "\n\n" + _load_prompt(block)
     else:
         system_prompt = base.rstrip()
 

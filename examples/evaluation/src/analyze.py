@@ -5,7 +5,8 @@ Outputs:
 - ``per_turn_scores.csv``: every (script, cell, run, turn) row with Comprehend scores
 - ``aggregate_scores.csv``: every (script, cell, run) full-conversation row
 - ``polarity-curves-{script}.png``: mean polarity ±min/max band per cell
-- ``affectus-8axis-{script}.png``: mean 8-axis trajectories per affectus-on cell
+- ``axis-trajectories-{script}.png``: mean per-axis trajectories per affectus-on cell
+- ``va-trajectory-{script}.png``: valence-arousal plane trajectory (russell runs only)
 - ``comprehend_jobs.json``: JobIds for traceability / console screenshots
 """
 
@@ -31,7 +32,17 @@ CELLS: list[tuple[str, bool]] = [
     ("contrarian", False),
 ]
 
-AXES = ["joy", "acceptance", "fear", "surprise", "sorrow", "disgust", "anger", "expectancy"]
+def detect_axes_order(recs: list[dict]) -> list[str]:
+    """Axis names in insertion order from the first record that has axes.
+
+    run.py stores axes as parsed from `affectus show`, which follows the
+    config's axis order, so this preserves the model's intended ordering
+    (wheel order for plutchik, valence/arousal for russell).
+    """
+    for r in recs:
+        if r.get("axes"):
+            return list(r["axes"].keys())
+    return []
 
 BUCKET = os.environ.get("COMPREHEND_BUCKET", "affectus-eval-comprehend-765653276628")
 DATA_ACCESS_ROLE_ARN = os.environ.get(
@@ -177,12 +188,13 @@ def plot_polarity_curves(per_turn_rows: list[dict], path: Path, pivot_turn: int 
     plt.close(fig)
 
 
-def plot_8axis_trajectories(
+def plot_axis_trajectories(
     affectus_traces: dict[str, dict[int, dict[int, dict[str, float]]]],
     path: Path,
+    axes_order: list[str],
     pivot_turn: int = 11,
 ) -> None:
-    """One subplot per affectus-on cell, 8 lines = 8 axes (mean across runs)."""
+    """One subplot per affectus-on cell, one line per axis (mean across runs)."""
     cells = sorted(affectus_traces.keys())
     n = len(cells)
     fig, axes_grid = plt.subplots(1, n, figsize=(6 * n, 5), sharey=True)
@@ -190,12 +202,12 @@ def plot_8axis_trajectories(
         axes_grid = [axes_grid]
 
     colors = plt.cm.tab10.colors
-    axis_color = {ax: colors[i % 10] for i, ax in enumerate(AXES)}
+    axis_color = {ax: colors[i % 10] for i, ax in enumerate(axes_order)}
 
     for ax_plt, cell in zip(axes_grid, cells):
         by_turn = affectus_traces[cell]  # turn -> run -> axes dict
         turns = sorted(by_turn.keys())
-        for axis in AXES:
+        for axis in axes_order:
             means = []
             for t in turns:
                 vals = [by_turn[t][run].get(axis, 0.0) for run in by_turn[t]]
@@ -206,10 +218,58 @@ def plot_8axis_trajectories(
         ax_plt.set_xlabel("turn")
         ax_plt.set_title(cell)
         ax_plt.grid(True, alpha=0.3)
-        ax_plt.set_ylim(-0.05, 2.0)
+        lo = min([0.0] + [v for bt in affectus_traces.values() for rn in bt.values()
+                          for a in rn.values() for v in a.values()])
+        ax_plt.set_ylim(lo - 0.05, 1.1)
     axes_grid[0].set_ylabel("axis intensity (after feel delta)")
     axes_grid[-1].legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), fontsize=9)
-    fig.suptitle("affectus 8-axis trajectory (mean across runs) — affectus-on cells", y=1.02)
+    fig.suptitle("affectus axis trajectory (mean across runs) — affectus-on cells", y=1.02)
+    fig.tight_layout()
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_va_trajectory(
+    affectus_traces: dict[str, dict[int, dict[int, dict[str, float]]]],
+    path: Path,
+    pivot_turn: int = 11,
+) -> None:
+    """Valence-arousal plane trajectory per affectus-on cell (mean across runs)."""
+    cells = sorted(affectus_traces.keys())
+    n = len(cells)
+    fig, axes_grid = plt.subplots(1, n, figsize=(6 * n, 6), sharex=True, sharey=True)
+    if n == 1:
+        axes_grid = [axes_grid]
+
+    for ax_plt, cell in zip(axes_grid, cells):
+        by_turn = affectus_traces[cell]
+        turns = sorted(by_turn.keys())
+        vx, vy = [], []
+        for t_ in turns:
+            runs = by_turn[t_]
+            vx.append(sum(a.get("valence", 0.0) for a in runs.values()) / len(runs))
+            vy.append(sum(a.get("arousal", 0.0) for a in runs.values()) / len(runs))
+        pre = [i for i, t_ in enumerate(turns) if t_ <= pivot_turn]
+        post = [i for i, t_ in enumerate(turns) if t_ >= pivot_turn]
+        ax_plt.plot([vx[i] for i in pre], [vy[i] for i in pre],
+                    marker="o", color="tab:blue", linewidth=1.5, label=f"turns 1-{pivot_turn}")
+        ax_plt.plot([vx[i] for i in post], [vy[i] for i in post],
+                    marker="o", color="tab:orange", linewidth=1.5,
+                    label=f"turns {pivot_turn}-{turns[-1]}")
+        for i, t_ in enumerate(turns):
+            if t_ in (turns[0], pivot_turn, turns[-1]):
+                ax_plt.annotate(f"t{t_}", (vx[i], vy[i]), textcoords="offset points",
+                                xytext=(6, 6), fontsize=9)
+        ax_plt.scatter([0.0], [0.3], marker="x", color="gray", zorder=5)
+        ax_plt.axvline(0, color="black", linewidth=0.5)
+        ax_plt.set_xlim(-1.05, 1.05)
+        ax_plt.set_ylim(-0.05, 1.05)
+        ax_plt.set_xlabel("valence")
+        ax_plt.set_title(cell)
+        ax_plt.grid(True, alpha=0.3)
+    axes_grid[0].set_ylabel("arousal")
+    axes_grid[-1].legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), fontsize=9)
+    fig.suptitle("core-affect trajectory in the valence-arousal plane (x = baseline)", y=1.02)
     fig.tight_layout()
     fig.savefig(path, dpi=140, bbox_inches="tight")
     plt.close(fig)
@@ -246,8 +306,13 @@ def main(base_dir: Path) -> None:
     affectus_traces: dict[str, dict[str, dict[int, dict[int, dict[str, float]]]]] = {}
     # affectus_traces[script][cell][turn][run] = {axis: value}
 
+    axes_orders: dict[str, list[str]] = {}
     for script, cell, run_index, path in discovered:
         recs = load_transcript(path)
+        if script not in axes_orders:
+            order = detect_axes_order(recs)
+            if order:
+                axes_orders[script] = order
         replies = [r["agent"] for r in recs]
         for rec, reply in zip(recs, replies):
             per_turn_texts.append(reply)
@@ -311,9 +376,14 @@ def main(base_dir: Path) -> None:
         rows = [r for r in per_turn_rows if r["script"] == script]
         plot_polarity_curves(rows, results_dir / f"polarity-curves-{script}.png")
         if affectus_traces.get(script):
-            plot_8axis_trajectories(
-                affectus_traces[script], results_dir / f"affectus-8axis-{script}.png"
+            order = axes_orders.get(script, [])
+            plot_axis_trajectories(
+                affectus_traces[script], results_dir / f"axis-trajectories-{script}.png", order
             )
+            if set(order) == {"valence", "arousal"}:
+                plot_va_trajectory(
+                    affectus_traces[script], results_dir / f"va-trajectory-{script}.png"
+                )
 
     with (results_dir / "comprehend_jobs.json").open("w", encoding="utf-8") as f:
         json.dump(
@@ -332,7 +402,7 @@ def main(base_dir: Path) -> None:
     for script in scripts:
         print(f"wrote {results_dir / f'polarity-curves-{script}.png'}")
         if affectus_traces.get(script):
-            print(f"wrote {results_dir / f'affectus-8axis-{script}.png'}")
+            print(f"wrote {results_dir / f'axis-trajectories-{script}.png'}")
     print(f"wrote {results_dir / 'comprehend_jobs.json'}")
 
 

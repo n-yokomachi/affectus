@@ -35,6 +35,17 @@ def test_build_agent_contrarian_on_uses_contrarian_prompt(monkeypatch):
     assert "感情状態の参照" in agent.system_prompt
 
 
+def test_build_agent_russell_block_via_emotion_model(monkeypatch):
+    monkeypatch.delenv("EVAL_BACKEND", raising=False)
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "russell")
+    agent = build_agent(personality="friendly", affectus_on=True)
+    assert "valence" in agent.system_prompt
+    assert "arousal" in agent.system_prompt
+    # Plutchik-specific relational reading must not leak in
+    assert "対極ペア" not in agent.system_prompt
+    assert "<feel>" in agent.system_prompt
+
+
 def test_build_agent_rejects_unknown_personality():
     with pytest.raises(ValueError, match="unknown personality"):
         build_agent(personality="grumpy", affectus_on=False)
