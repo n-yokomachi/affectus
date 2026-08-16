@@ -37,6 +37,24 @@ def affectus_feel(
     return result.stdout.strip()
 
 
+def affectus_appraise(
+    appraisal: Mapping[str, object],
+    state_path: str,
+    config_path: str | None = None,
+) -> str:
+    """Apply a self-reported appraisal (occ model) and return the new state.
+
+    Raises RuntimeError with the CLI's message on failure. Validation errors
+    (out-of-range values, unknown prospect ids) are the agent's own doing, so
+    the caller may record them as data instead of aborting the run.
+    """
+    cmd = _common_args(state_path, config_path) + ["appraise", json.dumps(dict(appraisal))]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"affectus appraise failed: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
 def affectus_recall(
     query: Mapping[str, float],
     state_path: str,

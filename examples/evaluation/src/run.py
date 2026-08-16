@@ -21,7 +21,12 @@ import re
 import sys
 from pathlib import Path
 
-from src.affectus_tools import affectus_feel, affectus_reset, affectus_show
+from src.affectus_tools import (
+    affectus_appraise,
+    affectus_feel,
+    affectus_reset,
+    affectus_show,
+)
 from src.agent import build_agent
 
 
@@ -34,8 +39,11 @@ CELLS: list[tuple[str, bool]] = [
 
 DEFAULT_SCRIPTS = ["direct-praise-to-anger", "direct-anger-to-praise"]
 
-# <feel>{...}</feel> tag the agent emits at the end of each affectus-on reply.
+# <feel>{...}</feel> tag the agent emits at the end of each affectus-on reply
+# (plutchik / russell). The occ model uses <appraise>{...}</appraise> instead:
+# the agent reports an appraisal of the event and the engine derives emotions.
 FEEL_RE = re.compile(r"<feel>\s*(\{.*?\})\s*</feel>", re.DOTALL)
+APPRAISE_RE = re.compile(r"<appraise>\s*(\{.*?\})\s*</appraise>", re.DOTALL)
 
 
 def parse_feel_tag(text: str) -> dict | None:
@@ -54,8 +62,19 @@ def parse_feel_tag(text: str) -> dict | None:
         return None
 
 
+def parse_appraise_tag(text: str) -> dict | None:
+    matches = APPRAISE_RE.findall(text)
+    if not matches:
+        return None
+    try:
+        parsed = json.loads(matches[-1])
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def strip_feel_tag(text: str) -> str:
-    return FEEL_RE.sub("", text).strip()
+    return APPRAISE_RE.sub("", FEEL_RE.sub("", text)).strip()
 
 
 def _parse_axes(raw_show: str) -> dict | None:
@@ -77,6 +96,9 @@ async def run_cell(
     """Run one repetition of one cell over one script. Returns the transcript path."""
     cell_id = f"{personality}-{'on' if affectus_on else 'off'}"
     job_id = f"{script_name}_{cell_id}_run{run_index}"
+    # occ replaces the <feel> delta protocol with <appraise> (the engine
+    # derives the emotions); the same env var also picks the prompt block.
+    emotion_model = os.environ.get("EVAL_EMOTION_MODEL", "plutchik")
     state_dir = base_dir / "state"
     transcripts_dir = base_dir / "transcripts"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -98,14 +120,33 @@ async def run_cell(
                 else:
                     message = user_utt
                 raw_reply = await agent(message)
+                appraisal = None
+                appraise_error = None
+                prospects = None
                 if affectus_on:
                     visible_reply = strip_feel_tag(raw_reply)
                     deltas = parse_feel_tag(raw_reply)
-                    if deltas:
+                    if emotion_model == "occ":
+                        appraisal = parse_appraise_tag(raw_reply)
+                        if appraisal is not None:
+                            try:
+                                affectus_appraise(appraisal, state_path, config_path)
+                            except RuntimeError as exc:
+                                # A rejected appraisal (bad range, unknown
+                                # prospect id) is the agent's own output —
+                                # record it as data and keep the run going.
+                                appraise_error = str(exc)
+                    elif deltas:
                         affectus_feel(deltas, state_path, config_path)
-                    # Snapshot the 8 axes AFTER applying the agent's feel delta
-                    # so the record reflects the state going into the next turn.
-                    axes = _parse_axes(affectus_show(state_path, config_path))
+                    # Snapshot the axes AFTER applying the agent's report so
+                    # the record reflects the state going into the next turn.
+                    shown = _parse_axes(affectus_show(state_path, config_path))
+                    if isinstance(shown, dict) and "axes" in shown:
+                        # occ show wraps the axes and the prospect ledger.
+                        axes = shown.get("axes")
+                        prospects = shown.get("prospects")
+                    else:
+                        axes = shown
                 else:
                     visible_reply = raw_reply
                     deltas = None
@@ -119,6 +160,10 @@ async def run_cell(
                     "deltas": deltas,
                     "axes": axes,
                 }
+                if emotion_model == "occ":
+                    rec["appraisal"] = appraisal
+                    rec["appraise_error"] = appraise_error
+                    rec["prospects"] = prospects
                 out.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return transcript_path
 

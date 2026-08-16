@@ -94,3 +94,15 @@ def test_build_agent_bedrock_backend_uses_temperature_zero_and_no_tools(monkeypa
     agent_kwargs = mock_Agent.call_args.kwargs
     assert "明るく協力的" in agent_kwargs["system_prompt"]
     assert agent_kwargs["tools"] == []
+
+
+def test_build_agent_occ_block_via_emotion_model(monkeypatch):
+    monkeypatch.delenv("EVAL_BACKEND", raising=False)
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "occ")
+    agent = build_agent(personality="friendly", affectus_on=True)
+    assert "<appraise>" in agent.system_prompt
+    assert "prospects" in agent.system_prompt
+    # occ agents appraise events; they must not be told to report emotion deltas
+    assert "<feel>" not in agent.system_prompt
+    # plutchik-specific relational reading must not leak in
+    assert "対極ペア" not in agent.system_prompt

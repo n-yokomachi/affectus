@@ -194,15 +194,26 @@ def plot_axis_trajectories(
     axes_order: list[str],
     pivot_turn: int = 11,
 ) -> None:
-    """One subplot per affectus-on cell, one line per axis (mean across runs)."""
+    """One subplot per affectus-on cell, one line per axis (mean across runs).
+
+    With a large axis set (occ has 22) only the axes that actually moved are
+    plotted — 22 near-zero lines with cycling colors are unreadable.
+    """
+    if len(axes_order) > 10:
+        active = {a for bt in affectus_traces.values() for rn in bt.values()
+                  for ax_vals in rn.values() for a, v in ax_vals.items() if abs(v) >= 0.02}
+        filtered = [a for a in axes_order if a in active]
+        if filtered:
+            axes_order = filtered
+
     cells = sorted(affectus_traces.keys())
     n = len(cells)
     fig, axes_grid = plt.subplots(1, n, figsize=(6 * n, 5), sharey=True)
     if n == 1:
         axes_grid = [axes_grid]
 
-    colors = plt.cm.tab10.colors
-    axis_color = {ax: colors[i % 10] for i, ax in enumerate(axes_order)}
+    colors = plt.cm.tab20.colors if len(axes_order) > 10 else plt.cm.tab10.colors
+    axis_color = {ax: colors[i % len(colors)] for i, ax in enumerate(axes_order)}
 
     for ax_plt, cell in zip(axes_grid, cells):
         by_turn = affectus_traces[cell]  # turn -> run -> axes dict
@@ -221,7 +232,7 @@ def plot_axis_trajectories(
         lo = min([0.0] + [v for bt in affectus_traces.values() for rn in bt.values()
                           for a in rn.values() for v in a.values()])
         ax_plt.set_ylim(lo - 0.05, 1.1)
-    axes_grid[0].set_ylabel("axis intensity (after feel delta)")
+    axes_grid[0].set_ylabel("axis intensity (after the agent's report)")
     axes_grid[-1].legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), fontsize=9)
     fig.suptitle("affectus axis trajectory (mean across runs) — affectus-on cells", y=1.02)
     fig.tight_layout()

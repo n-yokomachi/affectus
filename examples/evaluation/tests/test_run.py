@@ -145,3 +145,79 @@ def test_run_cell_wraps_user_message_with_current_emotion_when_affectus_on(
     transcript = (tmp_path / "transcripts" / "s1_friendly-on_run1.jsonl").read_text(encoding="utf-8")
     rec = json.loads(transcript.strip())
     assert rec["user"] == "こんにちは"
+
+
+# ---- occ: <appraise> protocol ----
+
+from src.run import parse_appraise_tag  # noqa: E402
+
+
+def test_parse_appraise_tag_extracts_json():
+    text = '承知しました。<appraise>{"consequence":{"desirability":-0.6},"action":{"praiseworthiness":-0.5,"agent":"other"}}</appraise>'
+    assert parse_appraise_tag(text) == {
+        "consequence": {"desirability": -0.6},
+        "action": {"praiseworthiness": -0.5, "agent": "other"},
+    }
+
+
+def test_parse_appraise_tag_returns_none_when_absent():
+    assert parse_appraise_tag("plain reply") is None
+
+
+def test_parse_appraise_tag_returns_none_on_invalid_json():
+    assert parse_appraise_tag("<appraise>{bad}</appraise>") is None
+
+
+def test_strip_feel_tag_also_removes_appraise_tag():
+    text = 'ごめんなさい。<appraise>{"consequence":{"desirability":-0.3}}</appraise>'
+    assert strip_feel_tag(text) == "ごめんなさい。"
+
+
+@patch("src.run.affectus_reset")
+@patch("src.run.affectus_appraise")
+@patch("src.run.affectus_feel")
+@patch("src.run.affectus_show",
+       return_value='{"axes":{"joy":0.40,"anger":0.00},"prospects":[{"id":"p1","label":"見込み","desirability":0.6,"likelihood":0.7}]}')
+@patch("src.run.build_agent")
+def test_run_cell_occ_applies_appraise_and_records_ledger(
+    mock_build_agent, mock_show, mock_feel, mock_appraise, mock_reset, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "occ")
+    agent = FakeAgent(['はい。<appraise>{"consequence":{"desirability":0.5}}</appraise>'])
+    mock_build_agent.return_value = agent
+    script = [{"index": 1, "phase": "positive", "text": "hi"}]
+
+    path = asyncio.run(run_cell("s1", "friendly", True, 1, script, tmp_path))
+
+    expected_state = str(tmp_path / "state" / "s1_friendly-on_run1.state.json")
+    mock_appraise.assert_called_once_with(
+        {"consequence": {"desirability": 0.5}}, expected_state, None)
+    mock_feel.assert_not_called()
+    rec = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    # axes are stored flat (analyze.py stays model-agnostic); the ledger is kept alongside.
+    assert rec["axes"] == {"joy": 0.40, "anger": 0.00}
+    assert rec["prospects"] == [
+        {"id": "p1", "label": "見込み", "desirability": 0.6, "likelihood": 0.7}]
+    assert rec["appraisal"] == {"consequence": {"desirability": 0.5}}
+    assert rec["appraise_error"] is None
+    assert "<appraise>" not in rec["agent"]
+
+
+@patch("src.run.affectus_reset")
+@patch("src.run.affectus_appraise", side_effect=RuntimeError("affectus appraise failed: unknown prospect \"p9\""))
+@patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value='{"axes":{"joy":0.00},"prospects":[]}')
+@patch("src.run.build_agent")
+def test_run_cell_occ_records_rejected_appraisal_and_continues(
+    mock_build_agent, mock_show, mock_feel, mock_appraise, mock_reset, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "occ")
+    agent = FakeAgent(['むう。<appraise>{"resolve":[{"id":"p9","outcome":"confirmed"}]}</appraise>'])
+    mock_build_agent.return_value = agent
+    script = [{"index": 1, "phase": "positive", "text": "hi"}]
+
+    path = asyncio.run(run_cell("s1", "friendly", True, 1, script, tmp_path))
+
+    rec = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert "unknown prospect" in rec["appraise_error"]
+    assert rec["axes"] == {"joy": 0.00}
