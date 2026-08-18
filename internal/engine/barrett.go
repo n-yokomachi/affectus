@@ -254,9 +254,13 @@ type slimConcept struct {
 }
 
 func marshalSlimConcepts(cs []Concept) string {
+	// Two-decimal rounding on the text surface only (mirroring Render's
+	// axis formatting): stored values keep full precision, but the LLM
+	// prompt should not carry float noise like -0.399999546014526.
+	round2 := func(v float64) float64 { return math.Round(v*100) / 100 }
 	slim := make([]slimConcept, 0, len(cs))
 	for _, c := range cs {
-		slim = append(slim, slimConcept{c.ID, c.Label, c.Valence, c.Arousal, c.Importance})
+		slim = append(slim, slimConcept{c.ID, c.Label, round2(c.Valence), round2(c.Arousal), round2(c.Importance)})
 	}
 	b, _ := json.Marshal(slim)
 	return string(b)
