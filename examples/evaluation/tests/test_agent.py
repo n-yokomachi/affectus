@@ -106,3 +106,14 @@ def test_build_agent_occ_block_via_emotion_model(monkeypatch):
     assert "<feel>" not in agent.system_prompt
     # plutchik-specific relational reading must not leak in
     assert "対極ペア" not in agent.system_prompt
+
+
+def test_build_agent_barrett_block_via_emotion_model(monkeypatch):
+    monkeypatch.delenv("EVAL_BACKEND", raising=False)
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "barrett")
+    agent = build_agent(personality="friendly", affectus_on=True)
+    assert "<remember>" in agent.system_prompt
+    assert "構成" in agent.system_prompt
+    assert "recalled" in agent.system_prompt
+    # plutchik-specific relational reading must not leak in
+    assert "対極ペア" not in agent.system_prompt

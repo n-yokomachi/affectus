@@ -24,6 +24,8 @@ from pathlib import Path
 from src.affectus_tools import (
     affectus_appraise,
     affectus_feel,
+    affectus_recall,
+    affectus_remember,
     affectus_reset,
     affectus_show,
 )
@@ -42,8 +44,13 @@ DEFAULT_SCRIPTS = ["direct-praise-to-anger", "direct-anger-to-praise"]
 # <feel>{...}</feel> tag the agent emits at the end of each affectus-on reply
 # (plutchik / russell). The occ model uses <appraise>{...}</appraise> instead:
 # the agent reports an appraisal of the event and the engine derives emotions.
+# The barrett model uses <feel> plus <remember>{label, vector}</remember>:
+# the stored vector doubles as the NEXT turn's recall query (one-call design;
+# the alternative — a separate appraise-then-respond phase — would double the
+# LLM calls per turn).
 FEEL_RE = re.compile(r"<feel>\s*(\{.*?\})\s*</feel>", re.DOTALL)
 APPRAISE_RE = re.compile(r"<appraise>\s*(\{.*?\})\s*</appraise>", re.DOTALL)
+REMEMBER_RE = re.compile(r"<remember>\s*(\{.*?\})\s*</remember>", re.DOTALL)
 
 
 def parse_feel_tag(text: str) -> dict | None:
@@ -73,8 +80,24 @@ def parse_appraise_tag(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def parse_remember_tag(text: str) -> dict | None:
+    matches = REMEMBER_RE.findall(text)
+    if not matches:
+        return None
+    try:
+        parsed = json.loads(matches[-1])
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    label, vector = parsed.get("label"), parsed.get("vector")
+    if not isinstance(label, str) or not label or not isinstance(vector, dict):
+        return None
+    return {"label": label, "vector": vector}
+
+
 def strip_feel_tag(text: str) -> str:
-    return APPRAISE_RE.sub("", FEEL_RE.sub("", text)).strip()
+    return REMEMBER_RE.sub("", APPRAISE_RE.sub("", FEEL_RE.sub("", text))).strip()
 
 
 def _parse_axes(raw_show: str) -> dict | None:
@@ -98,7 +121,16 @@ async def run_cell(
     job_id = f"{script_name}_{cell_id}_run{run_index}"
     # occ replaces the <feel> delta protocol with <appraise> (the engine
     # derives the emotions); the same env var also picks the prompt block.
+    # barrett reinterprets the on/off axis as store-on/store-off: BOTH cells
+    # run the full affectus loop (block, injection, feel, remember) and only
+    # the config differs (recall_k: 0 in the off cell), because the contrast
+    # under test is the concept store, not affectus itself.
     emotion_model = os.environ.get("EVAL_EMOTION_MODEL", "plutchik")
+    barrett = emotion_model == "barrett"
+    if barrett:
+        config_path = str(base_dir / "configs" /
+                          ("barrett.yaml" if affectus_on else "barrett-store-off.yaml"))
+    loop_on = affectus_on or barrett
     state_dir = base_dir / "state"
     transcripts_dir = base_dir / "transcripts"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -106,16 +138,41 @@ async def run_cell(
     # State file per (script, cell, run) so repetitions don't share affectus state.
     state_path = str(state_dir / f"{job_id}.state.json")
 
-    if affectus_on:
+    if loop_on:
         affectus_reset(state_path, config_path)
 
     transcript_path = transcripts_dir / f"{job_id}.jsonl"
-    async with build_agent(personality=personality, affectus_on=affectus_on) as agent:
+    prev_vector: dict | None = None  # barrett: last reported 14-attribute vector
+    async with build_agent(personality=personality, affectus_on=loop_on) as agent:
         with transcript_path.open("w", encoding="utf-8") as out:
             for entry in script:
                 user_utt = entry["text"]
-                if affectus_on:
-                    current_state = affectus_show(state_path, config_path)
+                recalled = None
+                barrett_error = None
+                if loop_on:
+                    if barrett:
+                        # The previous turn's remembered vector doubles as
+                        # this turn's recall query (one-turn lag). Before any
+                        # report exists, synthesize the same JSON shape from
+                        # show — the store is empty then, so recalled=[] is
+                        # semantically true as well.
+                        current_state = None
+                        if prev_vector is not None:
+                            try:
+                                current_state = affectus_recall(
+                                    prev_vector, state_path, config_path)
+                            except RuntimeError as exc:
+                                barrett_error = str(exc)
+                        if current_state is None:
+                            shown = _parse_axes(affectus_show(state_path, config_path)) or {}
+                            current_state = json.dumps(
+                                {"axes": shown.get("axes"), "recalled": [],
+                                 "culture_map": shown.get("culture_map")},
+                                ensure_ascii=False, separators=(",", ":"))
+                        parsed_state = _parse_axes(current_state) or {}
+                        recalled = parsed_state.get("recalled")
+                    else:
+                        current_state = affectus_show(state_path, config_path)
                     message = f"[現在のあなたの感情: {current_state}]\n\n{user_utt}"
                 else:
                     message = user_utt
@@ -123,7 +180,8 @@ async def run_cell(
                 appraisal = None
                 appraise_error = None
                 prospects = None
-                if affectus_on:
+                remember = None
+                if loop_on:
                     visible_reply = strip_feel_tag(raw_reply)
                     deltas = parse_feel_tag(raw_reply)
                     if emotion_model == "occ":
@@ -136,13 +194,32 @@ async def run_cell(
                                 # prospect id) is the agent's own output —
                                 # record it as data and keep the run going.
                                 appraise_error = str(exc)
+                    elif barrett:
+                        # Order per the block's contract: feel first, then
+                        # remember (the engine snapshots post-feel core affect).
+                        if deltas:
+                            try:
+                                affectus_feel(deltas, state_path, config_path)
+                            except RuntimeError as exc:
+                                barrett_error = str(exc)
+                        remember = parse_remember_tag(raw_reply)
+                        if remember is not None:
+                            try:
+                                affectus_remember(remember["label"], remember["vector"],
+                                                  state_path, config_path)
+                                prev_vector = remember["vector"]
+                            except RuntimeError as exc:
+                                # A rejected report is the agent's own output —
+                                # record it and keep the last valid query.
+                                barrett_error = str(exc)
                     elif deltas:
                         affectus_feel(deltas, state_path, config_path)
                     # Snapshot the axes AFTER applying the agent's report so
                     # the record reflects the state going into the next turn.
                     shown = _parse_axes(affectus_show(state_path, config_path))
                     if isinstance(shown, dict) and "axes" in shown:
-                        # occ show wraps the axes and the prospect ledger.
+                        # occ / barrett show wraps the axes with the ledger /
+                        # concept store.
                         axes = shown.get("axes")
                         prospects = shown.get("prospects")
                     else:
@@ -164,6 +241,12 @@ async def run_cell(
                     rec["appraisal"] = appraisal
                     rec["appraise_error"] = appraise_error
                     rec["prospects"] = prospects
+                if barrett:
+                    rec["recalled"] = recalled
+                    rec["remember"] = remember
+                    rec["barrett_error"] = barrett_error
+                    concepts = (shown or {}).get("concepts") if loop_on else None
+                    rec["concepts_n"] = len(concepts) if isinstance(concepts, list) else 0
                 out.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return transcript_path
 

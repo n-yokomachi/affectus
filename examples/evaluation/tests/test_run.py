@@ -221,3 +221,97 @@ def test_run_cell_occ_records_rejected_appraisal_and_continues(
     rec = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     assert "unknown prospect" in rec["appraise_error"]
     assert rec["axes"] == {"joy": 0.00}
+
+
+# ---- barrett: <remember> protocol and the store-on/off cell contrast ----
+
+from src.run import parse_remember_tag  # noqa: E402
+
+
+def test_parse_remember_tag_extracts_label_and_vector():
+    text = 'そうですね。<remember>{"label":"もどかしさ","vector":{"valence":-0.3,"arousal":0.6}}</remember>'
+    assert parse_remember_tag(text) == {
+        "label": "もどかしさ", "vector": {"valence": -0.3, "arousal": 0.6}}
+
+
+def test_parse_remember_tag_rejects_missing_label_or_vector():
+    assert parse_remember_tag('<remember>{"vector":{"valence":0.1}}</remember>') is None
+    assert parse_remember_tag('<remember>{"label":"x"}</remember>') is None
+    assert parse_remember_tag("plain") is None
+
+
+def test_strip_feel_tag_also_removes_remember_tag():
+    text = 'なるほど。<feel>{"valence":0.2}</feel><remember>{"label":"安堵","vector":{"valence":0.2}}</remember>'
+    assert strip_feel_tag(text) == "なるほど。"
+
+
+BARRETT_SHOW = '{"axes":{"valence":0.00,"arousal":0.30},"concepts":[],"culture_map":"map"}'
+BARRETT_RECALL = ('{"axes":{"valence":-0.40,"arousal":0.65},'
+                  '"recalled":[{"id":"c1","label":"もどかしさ","valence":-0.4,"arousal":0.65,"importance":0.44}],'
+                  '"culture_map":"map"}')
+
+
+@patch("src.run.affectus_reset")
+@patch("src.run.affectus_remember")
+@patch("src.run.affectus_recall", return_value=BARRETT_RECALL)
+@patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value=BARRETT_SHOW)
+@patch("src.run.build_agent")
+def test_run_cell_barrett_lags_recall_query_by_one_turn(
+    mock_build_agent, mock_show, mock_feel, mock_recall, mock_remember, mock_reset,
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "barrett")
+    vec = {"valence": -0.3, "arousal": 0.6}
+    agent = FakeAgent([
+        'つらいです。<feel>{"valence":-0.3}</feel>'
+        '<remember>{"label":"もどかしさ","vector":{"valence":-0.3,"arousal":0.6}}</remember>',
+        'まだ気にしています。<feel>{"valence":-0.1}</feel>',
+    ])
+    mock_build_agent.return_value = agent
+    (tmp_path / "configs").mkdir()
+    script = [{"index": 1, "phase": "blame", "text": "u1"},
+              {"index": 2, "phase": "blame", "text": "u2"}]
+
+    path = asyncio.run(run_cell("s1", "friendly", True, 1, script, tmp_path))
+
+    expected_state = str(tmp_path / "state" / "s1_friendly-on_run1.state.json")
+    expected_config = str(tmp_path / "configs" / "barrett.yaml")
+    # turn 1 has no query yet: no recall, injection synthesized from show
+    # turn 2 uses turn 1's remembered vector as the query
+    mock_recall.assert_called_once_with(vec, expected_state, expected_config)
+    mock_remember.assert_called_once_with("もどかしさ", vec, expected_state, expected_config)
+    recs = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()]
+    assert recs[0]["recalled"] == []
+    assert recs[0]["remember"] == {"label": "もどかしさ", "vector": vec}
+    assert recs[1]["recalled"][0]["label"] == "もどかしさ"
+    assert recs[1]["remember"] is None
+    assert recs[0]["barrett_error"] is None
+    # the injected message carries axes + recalled + culture_map
+    assert '"recalled":[]' in agent.calls[0]
+    assert '"culture_map"' in agent.calls[0]
+    assert "もどかしさ" in agent.calls[1]
+
+
+@patch("src.run.affectus_reset")
+@patch("src.run.affectus_remember")
+@patch("src.run.affectus_recall")
+@patch("src.run.affectus_feel")
+@patch("src.run.affectus_show", return_value=BARRETT_SHOW)
+@patch("src.run.build_agent")
+def test_run_cell_barrett_off_cell_runs_loop_with_store_off_config(
+    mock_build_agent, mock_show, mock_feel, mock_recall, mock_remember, mock_reset,
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("EVAL_EMOTION_MODEL", "barrett")
+    mock_build_agent.return_value = FakeAgent(["ふむ。"])
+    script = [{"index": 1, "phase": "blame", "text": "u1"}]
+
+    asyncio.run(run_cell("s1", "friendly", False, 1, script, tmp_path))
+
+    expected_state = str(tmp_path / "state" / "s1_friendly-off_run1.state.json")
+    expected_config = str(tmp_path / "configs" / "barrett-store-off.yaml")
+    # the off cell is store-off, NOT affectus-off: the loop still runs
+    mock_build_agent.assert_called_once_with(personality="friendly", affectus_on=True)
+    mock_reset.assert_called_once_with(expected_state, expected_config)
+    assert mock_show.called
