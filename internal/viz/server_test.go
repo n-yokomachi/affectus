@@ -241,7 +241,7 @@ func TestStateJSONIncludesModelAndPerAxisRange(t *testing.T) {
 	if byName["valence"].Range.Min != -1.0 || byName["valence"].Range.Max != 1.0 {
 		t.Errorf("valence range = %+v, want {-1,1}", byName["valence"].Range)
 	}
-	if byName["arousal"].Range.Min != 0.0 || byName["arousal"].Range.Max != 1.0 {
-		t.Errorf("arousal range = %+v, want {0,1}", byName["arousal"].Range)
+	if byName["arousal"].Range.Min != -1.0 || byName["arousal"].Range.Max != 1.0 {
+		t.Errorf("arousal range = %+v, want {-1,1}", byName["arousal"].Range)
 	}
 }

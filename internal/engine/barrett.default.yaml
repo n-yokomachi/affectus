@@ -6,7 +6,7 @@ delta_clamp: { min: -1.0, max: 1.0 }
 axes:
   # core affect (Russell circumplex) — the substrate the concept store sits on
   - { name: valence, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
-  - { name: arousal, baseline: 0.3, halflife_minutes: 90, range: { min:  0.0, max: 1.0 } }
+  - { name: arousal, baseline: 0.0, halflife_minutes: 90, range: { min: -1.0, max: 1.0 } }
 
 barrett:
   # v1 retrieval representation: the 14 emotion-concept attributes of

@@ -290,7 +290,7 @@ function render(data) {
       if (trail.length > TRAIL_MAX) trail.shift();
     }
     document.getElementById("side-title").textContent = "core affect values";
-    document.getElementById("side-sub").textContent = "valence ∈ [−1,+1], arousal ∈ [0,+1]";
+    document.getElementById("side-sub").textContent = "valence ∈ [−1,+1], arousal ∈ [−1,+1]";
     renderScatter(data.axes);
     renderValues(data.axes);
     if (isBarrett) renderConcepts(data.concepts || []);

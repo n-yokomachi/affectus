@@ -75,7 +75,7 @@ func TestRussellConfigShape(t *testing.T) {
 			t.Errorf("axis %q should have an explicit range", name)
 		}
 	}
-	if !almostEqual(cfg.Axes[1].Baseline, 0.3) {
-		t.Errorf("arousal baseline = %v, want 0.3", cfg.Axes[1].Baseline)
+	if !almostEqual(cfg.Axes[1].Baseline, 0.0) {
+		t.Errorf("arousal baseline = %v, want 0.0", cfg.Axes[1].Baseline)
 	}
 }

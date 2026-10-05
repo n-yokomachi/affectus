@@ -50,6 +50,6 @@ At the END of every reply:
   what future recalls surface. Recalling an experience refreshes it;
   neglected, trivial experiences are eventually forgotten (evicted).
 - Time decay of core affect toward a calm baseline (valence 0.0, arousal
-  0.3) is handled by a scheduled `affectus tick`; do not decay it yourself.
+  0.0) is handled by a scheduled `affectus tick`; do not decay it yourself.
 - affectus provides raw numbers and stored labels only. Categorization —
   deciding what this feeling IS — is always your job, never the engine's.

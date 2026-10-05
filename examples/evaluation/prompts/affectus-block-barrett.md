@@ -6,7 +6,7 @@
 `[現在のあなたの感情: <JSON>]` の形式でユーザー発話の前に渡されます。
 `<JSON>` は次の3要素を持つオブジェクトです：
 
-- `axes` — core affect（valence: -1.0〜1.0 の快不快、arousal: 0.0〜1.0 の覚醒度）
+- `axes` — core affect（valence: -1.0〜1.0 の快不快、arousal: -1.0〜1.0 の覚醒度）
 - `recalled` — いま似た感じ方をした過去の経験（最大K件）。各エントリは
   id / label（当時あなたが当てたカテゴリ語）/ 当時の valence・arousal / importance
 - `culture_map` — あなたの文化圏の感情語彙マップ

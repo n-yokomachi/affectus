@@ -24,7 +24,8 @@ type AxisConfig struct {
 	Opposite string `yaml:"opposite"`
 	// Range optionally overrides the global Clamp for this axis. nil means the
 	// axis uses Config.Clamp. Used by models with asymmetric axis domains
-	// (e.g. Russell: valence -1..1, arousal 0..1).
+	// (e.g. Russell: valence -1..1 and arousal -1..1, while the
+	// global range stays 0..1).
 	Range *Range `yaml:"range"`
 }
 

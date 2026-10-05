@@ -84,8 +84,8 @@ func TestDecayRussellArousalToBaseline(t *testing.T) {
 	if !almostEqual(out.Axes["valence"], 0.4) {
 		t.Errorf("valence after one halflife = %v, want 0.4", out.Axes["valence"])
 	}
-	// arousal: 0.3 + (0.9-0.3)*0.5 = 0.6  (decays toward 0.3 baseline, NOT 0)
-	if !almostEqual(out.Axes["arousal"], 0.6) {
-		t.Errorf("arousal after one halflife = %v, want 0.6 (baseline 0.3)", out.Axes["arousal"])
+	// arousal: 0.0 + (0.9-0.0)*0.5 = 0.45  (decays toward the neutral 0 baseline)
+	if !almostEqual(out.Axes["arousal"], 0.45) {
+		t.Errorf("arousal after one halflife = %v, want 0.45 (baseline 0)", out.Axes["arousal"])
 	}
 }

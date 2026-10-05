@@ -271,10 +271,11 @@ def plot_va_trajectory(
             if t_ in (turns[0], pivot_turn, turns[-1]):
                 ax_plt.annotate(f"t{t_}", (vx[i], vy[i]), textcoords="offset points",
                                 xytext=(6, 6), fontsize=9)
-        ax_plt.scatter([0.0], [0.3], marker="x", color="gray", zorder=5)
+        ax_plt.scatter([0.0], [0.0], marker="x", color="gray", zorder=5)
         ax_plt.axvline(0, color="black", linewidth=0.5)
         ax_plt.set_xlim(-1.05, 1.05)
-        ax_plt.set_ylim(-0.05, 1.05)
+        ax_plt.set_ylim(-1.05, 1.05)
+        ax_plt.axhline(0, color="black", linewidth=0.5)
         ax_plt.set_xlabel("valence")
         ax_plt.set_title(cell)
         ax_plt.grid(True, alpha=0.3)

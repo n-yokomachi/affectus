@@ -90,11 +90,11 @@ func TestCosineRelevance(t *testing.T) {
 
 func TestConceptImportance(t *testing.T) {
 	cfg := barrettCfg(t)
-	// Neutral point = axis baselines (valence 0.0, arousal 0.3).
-	if got := conceptImportance(0.0, 0.3, cfg); !almostEqual(got, 0) {
+	// Neutral point = axis baselines (valence 0.0, arousal 0.0).
+	if got := conceptImportance(0.0, 0.0, cfg); !almostEqual(got, 0) {
 		t.Errorf("neutral importance = %v, want 0", got)
 	}
-	// Farthest corner: valence ±1 (dist 1.0), arousal 1.0 (dist 0.7) -> importance 1.
+	// Farthest corner: valence ±1 (dist 1.0), arousal ±1 (dist 1.0) -> importance 1.
 	if got := conceptImportance(-1.0, 1.0, cfg); !almostEqual(got, 1) {
 		t.Errorf("extreme importance = %v, want 1", got)
 	}
@@ -336,7 +336,7 @@ func TestRenderBarrett(t *testing.T) {
 
 	// Empty store: concepts normalizes to [].
 	out := RenderBarrett(s, cfg)
-	if !strings.HasPrefix(out, `{"axes":{"valence":0.25,"arousal":0.30}`) {
+	if !strings.HasPrefix(out, `{"axes":{"valence":0.25,"arousal":0.00}`) {
 		t.Errorf("axes prefix wrong: %s", out)
 	}
 	if !strings.Contains(out, `"concepts":[]`) {

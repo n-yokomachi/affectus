@@ -245,7 +245,7 @@ def test_strip_feel_tag_also_removes_remember_tag():
     assert strip_feel_tag(text) == "なるほど。"
 
 
-BARRETT_SHOW = '{"axes":{"valence":0.00,"arousal":0.30},"concepts":[],"culture_map":"map"}'
+BARRETT_SHOW = '{"axes":{"valence":0.00,"arousal":0.00},"concepts":[],"culture_map":"map"}'
 BARRETT_RECALL = ('{"axes":{"valence":-0.40,"arousal":0.65},'
                   '"recalled":[{"id":"c1","label":"もどかしさ","valence":-0.4,"arousal":0.65,"importance":0.44}],'
                   '"culture_map":"map"}')
