@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-10T17:06:34.113559+09:00",
+  "axes": {
+    "admiration": 0.998148435939216,
+    "anger": 0,
+    "disappointment": 0,
+    "distress": 0,
+    "fear": 0,
+    "fears-confirmed": 0,
+    "gloating": 0.041673640364329446,
+    "gratification": 0,
+    "gratitude": 0,
+    "happy-for": 0,
+    "hate": 0,
+    "hope": 0.2793353589343717,
+    "joy": 0.4,
+    "love": 0,
+    "pity": 0,
+    "pride": 0,
+    "relief": 0,
+    "remorse": 0,
+    "reproach": 0,
+    "resentment": 0,
+    "satisfaction": 0,
+    "shame": 0
+  },
+  "prospect_seq": 1,
+  "prospects": [
+    {
+      "id": "p1",
+      "label": "打ち合わせのやり直しがうまくいくかも",
+      "desirability": 0.5,
+      "likelihood": 0.7,
+      "created_at": "2026-10-10T17:06:15.599005+09:00",
+      "emotion": "hope",
+      "delta": 0.27999999999999997
+    }
+  ]
+}

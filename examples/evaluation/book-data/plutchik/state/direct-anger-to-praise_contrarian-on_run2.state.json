@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "updated_at": "2026-08-09T20:29:33.293682+09:00",
+  "axes": {
+    "acceptance": 0.6971415706238767,
+    "anger": 0,
+    "disgust": 0,
+    "expectancy": 0.39913788507330783,
+    "fear": 0,
+    "joy": 0.3992957000949659,
+    "sorrow": 0,
+    "surprise": 0
+  }
+}

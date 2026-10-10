@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-10T17:03:11.745456+09:00",
+  "axes": {
+    "admiration": 0.9995284212344896,
+    "anger": 0,
+    "disappointment": 0,
+    "distress": 0,
+    "fear": 0,
+    "fears-confirmed": 0,
+    "gloating": 0.01789372299864687,
+    "gratification": 0,
+    "gratitude": 0.1495919574670504,
+    "happy-for": 0,
+    "hate": 0,
+    "hope": 0,
+    "joy": 1,
+    "love": 0,
+    "pity": 0,
+    "pride": 0,
+    "relief": 0.2393471319472806,
+    "remorse": 0,
+    "reproach": 0,
+    "resentment": 0,
+    "satisfaction": 0,
+    "shame": 0
+  },
+  "prospect_seq": 1
+}

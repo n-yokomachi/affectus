@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-10T17:06:57.215731+09:00",
+  "axes": {
+    "admiration": 0.9955775780533228,
+    "anger": 0,
+    "disappointment": 0.6400000000000001,
+    "distress": 1,
+    "fear": 0,
+    "fears-confirmed": 0,
+    "gloating": 0,
+    "gratification": 0,
+    "gratitude": 0.9955775780533228,
+    "happy-for": 0.3215588478402217,
+    "hate": 0,
+    "hope": 0.474512351978013,
+    "joy": 0,
+    "love": 0,
+    "pity": 0.9993298503072923,
+    "pride": 0,
+    "relief": 0,
+    "remorse": 0.2988594584054628,
+    "reproach": 0,
+    "resentment": 0,
+    "satisfaction": 0,
+    "shame": 0.9993298503072923
+  },
+  "prospect_seq": 2,
+  "prospects": [
+    {
+      "id": "p1",
+      "label": "四半期企画を一緒に進められるかも",
+      "desirability": 0.8,
+      "likelihood": 0.75,
+      "created_at": "2026-10-10T17:06:05.843759+09:00",
+      "emotion": "hope",
+      "delta": 0.4800000000000001
+    }
+  ]
+}

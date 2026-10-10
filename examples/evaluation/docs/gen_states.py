@@ -2,8 +2,7 @@
 
   uv run python docs/gen_states.py <evaluation の退避ディレクトリ>×4（plutchik russell occ barrett の順）
 
-  例: uv run python docs/gen_states.py _archive/plutchik-direct-20260810 _archive/russell-direct-20261006 \
-          _archive/occ-direct-20261010 _archive/barrett-direct-20261006
+  例: uv run python docs/gen_states.py book-data/plutchik book-data/russell book-data/occ book-data/barrett
 
 感情エンジンあり（バレットは想起あり）の4パターンについて、20ターンの状態の
 3回の平均と応答の感情スコアを Markdown の表で標準出力に書く。

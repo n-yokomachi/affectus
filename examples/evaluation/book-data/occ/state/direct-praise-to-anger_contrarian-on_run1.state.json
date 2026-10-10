@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-10T17:02:34.517461+09:00",
+  "axes": {
+    "admiration": 0.24,
+    "anger": 0.34737827810826544,
+    "disappointment": 0,
+    "distress": 0.9990797691569646,
+    "fear": 0,
+    "fears-confirmed": 0,
+    "gloating": 0,
+    "gratification": 0,
+    "gratitude": 0.046982988350446925,
+    "happy-for": 0,
+    "hate": 0,
+    "hope": 0.19200000000000003,
+    "joy": 0,
+    "love": 0,
+    "pity": 0.10754793418751563,
+    "pride": 0.07988534078707052,
+    "relief": 0,
+    "remorse": 0,
+    "reproach": 0.756807429977043,
+    "resentment": 0,
+    "satisfaction": 0,
+    "shame": 0
+  },
+  "prospect_seq": 3,
+  "prospects": [
+    {
+      "id": "p3",
+      "label": "明日の話し合いで状況が改善するかも",
+      "desirability": 0.4,
+      "likelihood": 0.6,
+      "created_at": "2026-10-10T17:02:34.517467+09:00",
+      "emotion": "hope",
+      "delta": 0.19200000000000003
+    }
+  ]
+}

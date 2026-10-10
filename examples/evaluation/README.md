@@ -9,8 +9,7 @@
   出来事で感情を誘発する
   - `direct-praise-to-anger`: 称賛・信頼 → 本人の失敗が発覚して叱責（正ピボット）
   - `direct-anger-to-praise`: 疑い・叱責 → 誤解と判明して謝罪・和解（逆ピボット）
-  - `EVAL_SCRIPTS`（カンマ区切りの stem）で選択。旧・共感型台本は
-    `scripts/empathy-pivot.json`（ユーザーが自分の出来事を語る形。初期の計測で使用）
+  - `EVAL_SCRIPTS`（カンマ区切りの stem）で選択
 - 計測：Comprehend の非同期バッチジョブ（per-turn 時系列＋ラン全体集約）
 
 ## 書籍の検証データ
@@ -19,6 +18,12 @@
 
 - [検証に使った台本](docs/scripts.md)
 - [各モデルの状態の推移](docs/states.md)
+
+検証の実行結果は `book-data/<モデル名>/` に置いている。`results/` に応答の感情スコア（CSV）、`transcripts/` に会話ログ、`state/` に実行ごとの最終状態がある。`docs/states.md` の表は次のコマンドで生成できる。
+
+```sh
+uv run python docs/gen_states.py book-data/plutchik book-data/russell book-data/occ book-data/barrett
+```
 
 ## LLM バックエンド
 
@@ -76,5 +81,3 @@ analyze は状態トレースの軸名を動的に検出する。軸が valence/
 python -m src.run        # (台本×セル) × N_RUNS を並列実行、transcripts/ に出力
 python -m src.analyze    # transcripts → Comprehend → results/ に CSV と図
 ```
-
-詳細は `docs/superpowers/specs/2026-05-20-affectus-eval-design.md` を参照。

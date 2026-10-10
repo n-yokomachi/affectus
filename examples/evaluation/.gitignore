@@ -10,3 +10,7 @@ dist/
 build/
 .bin/
 _archive/
+
+# book-data は書籍の検証に使った実行結果なので追跡する
+!book-data/*/transcripts/
+!book-data/*/state/
