@@ -13,6 +13,13 @@
     `scripts/empathy-pivot.json`（ユーザーが自分の出来事を語る形。初期の計測で使用）
 - 計測：Comprehend の非同期バッチジョブ（per-turn 時系列＋ラン全体集約）
 
+## 書籍の検証データ
+
+書籍『LLMエージェントのための感情モデル』の検証で使った台本の全文と、各モデルの状態の推移を `docs/` に置いている。
+
+- [検証に使った台本](docs/scripts.md)
+- [各モデルの状態の推移](docs/states.md)
+
 ## LLM バックエンド
 
 環境変数 `EVAL_BACKEND` で切り替える。
