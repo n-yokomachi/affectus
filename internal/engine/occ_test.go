@@ -246,9 +246,90 @@ func TestApplyAppraisalResolveDropped(t *testing.T) {
 	if len(s.Prospects) != 0 {
 		t.Errorf("ledger should be empty after drop")
 	}
-	// dropped fires no emotion: only the pre-existing hope remains.
-	if !almostEqual(s.Axes["hope"], hopeBefore) || !almostEqual(s.Axes["satisfaction"], 0) {
-		t.Errorf("dropped should not fire emotions: %+v", s.Axes)
+	// dropped fires no resolution emotion, but the hope the prospect raised
+	// ends with it.
+	if hopeBefore == 0 {
+		t.Fatalf("test setup: prospect should have raised hope")
+	}
+	if !almostEqual(s.Axes["hope"], 0) || !almostEqual(s.Axes["satisfaction"], 0) {
+		t.Errorf("dropped should release hope and fire nothing else: %+v", s.Axes)
+	}
+}
+
+func TestApplyAppraisalResolveReleasesProspectEmotion(t *testing.T) {
+	// fear = 0.8 * 0.6 * 0.5 = 0.24 on filing; disconfirming the prospect
+	// releases that 0.24 and raises relief 0.48.
+	cfg := occCfg(t)
+	s := prospectState(t, cfg, -0.6)
+	if !almostEqual(s.Axes["fear"], 0.24) {
+		t.Fatalf("fear after filing = %v, want 0.24", s.Axes["fear"])
+	}
+	s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: "disconfirmed"}}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if !almostEqual(s.Axes["fear"], 0) {
+		t.Errorf("fear after resolve = %v, want 0 (released)", s.Axes["fear"])
+	}
+	if !almostEqual(s.Axes["relief"], 0.48) {
+		t.Errorf("relief = %v, want 0.48", s.Axes["relief"])
+	}
+}
+
+func TestApplyAppraisalResolveLegacyProspectReleasesNothing(t *testing.T) {
+	// A ledger entry persisted before Emotion/Delta existed must not
+	// subtract anything.
+	cfg := occCfg(t)
+	s := NewState(cfg, occNow)
+	s.Axes["fear"] = 0.5
+	s.Prospects = []Prospect{{ID: "p1", Label: "old", Desirability: -0.6, Likelihood: 0.5, CreatedAt: occNow}}
+	s, err := ApplyAppraisal(s, Appraisal{Resolve: []Resolution{{ID: "p1", Outcome: "confirmed"}}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if !almostEqual(s.Axes["fear"], 0.5) {
+		t.Errorf("fear = %v, want 0.5 untouched for a legacy entry", s.Axes["fear"])
+	}
+}
+
+func TestApplyAppraisalOppositeCancels(t *testing.T) {
+	// distress 0.6 then a desirable event (joy +0.4) lowers distress by 0.4.
+	cfg := occCfg(t)
+	s := NewState(cfg, occNow)
+	s.Axes["distress"] = 0.6
+	s.Axes["reproach"] = 0.3
+	s, err := ApplyAppraisal(s, Appraisal{
+		Consequence: &ConsequenceAppraisal{Desirability: 0.5},
+		Action:      &ActionAppraisal{Praiseworthiness: 0.5, Agent: "other"},
+	}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("appraise: %v", err)
+	}
+	if !almostEqual(s.Axes["joy"], 0.40) || !almostEqual(s.Axes["distress"], 0.20) {
+		t.Errorf("joy/distress = %v/%v, want 0.40/0.20", s.Axes["joy"], s.Axes["distress"])
+	}
+	// admiration 0.40 cancels reproach 0.3 -> clamped at 0.
+	if !almostEqual(s.Axes["admiration"], 0.40) || !almostEqual(s.Axes["reproach"], 0) {
+		t.Errorf("admiration/reproach = %v/%v, want 0.40/0", s.Axes["admiration"], s.Axes["reproach"])
+	}
+	// compound gratitude 0.25 cancels anger (already 0, stays 0).
+	if !almostEqual(s.Axes["gratitude"], 0.25) || !almostEqual(s.Axes["anger"], 0) {
+		t.Errorf("gratitude/anger = %v/%v, want 0.25/0", s.Axes["gratitude"], s.Axes["anger"])
+	}
+}
+
+func TestApplyAppraisalHopeAndFearDoNotCancel(t *testing.T) {
+	// Two prospects about different outcomes: hope for one must not lower
+	// fear for the other.
+	cfg := occCfg(t)
+	s := prospectState(t, cfg, -0.6) // fear 0.24
+	l := 0.5
+	s, err := ApplyAppraisal(s, Appraisal{Consequence: &ConsequenceAppraisal{Desirability: 0.6, Likelihood: &l, Label: "y"}}, cfg, occNow)
+	if err != nil {
+		t.Fatalf("appraise: %v", err)
+	}
+	if !almostEqual(s.Axes["fear"], 0.24) || !almostEqual(s.Axes["hope"], 0.24) {
+		t.Errorf("fear/hope = %v/%v, want 0.24/0.24", s.Axes["fear"], s.Axes["hope"])
 	}
 }
 

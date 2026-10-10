@@ -24,6 +24,24 @@ var OCCAxisNames = []string{
 	"gratification", "gratitude", "remorse", "anger",
 }
 
+// occOpposites pairs each emotion type with the opposite-valence type of
+// the same OCC group. A delta that raises one side lowers the other by the
+// same amount (an implementation choice, not an OCC rule): the groups are
+// defined as pleased/displeased pairs about the same kind of object, so a
+// new appraisal in one direction is read as superseding the other. The
+// prospect-based types are not paired here — hope and fear may concern
+// different prospects, and they are released individually on resolution.
+var occOpposites = map[string]string{
+	"joy": "distress", "distress": "joy",
+	"happy-for": "resentment", "resentment": "happy-for",
+	"pity": "gloating", "gloating": "pity",
+	"pride": "shame", "shame": "pride",
+	"admiration": "reproach", "reproach": "admiration",
+	"love": "hate", "hate": "love",
+	"gratification": "remorse", "remorse": "gratification",
+	"gratitude": "anger", "anger": "gratitude",
+}
+
 // Resolution outcomes.
 const (
 	OutcomeConfirmed    = "confirmed"
@@ -156,6 +174,11 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 			return State{}, fmt.Errorf("unknown prospect %q", r.ID)
 		}
 		s.Prospects = rest
+		// The prospect no longer exists, so the hope or fear it raised
+		// ends with it (whatever the outcome).
+		if p.Emotion != "" && p.Delta != 0 {
+			deltas[p.Emotion] -= p.Delta
+		}
 		if r.Outcome == OutcomeDropped {
 			continue
 		}
@@ -198,11 +221,11 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 			// session can resolve it.
 			l := *c.Likelihood
 			mag := g.Prospect * math.Abs(des) * l
+			emotion := "fear"
 			if des > 0 {
-				deltas["hope"] += mag
-			} else {
-				deltas["fear"] += mag
+				emotion = "hope"
 			}
+			deltas[emotion] += mag
 			s.ProspectSeq++
 			s.Prospects = append(s.Prospects, Prospect{
 				ID:           fmt.Sprintf("p%d", s.ProspectSeq),
@@ -210,6 +233,8 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 				Desirability: des,
 				Likelihood:   l,
 				CreatedAt:    now,
+				Emotion:      emotion,
+				Delta:        mag,
 			})
 			if max := cfg.OCC.MaxProspects; len(s.Prospects) > max {
 				s.Prospects = append([]Prospect(nil), s.Prospects[len(s.Prospects)-max:]...)
@@ -268,6 +293,23 @@ func ApplyAppraisal(s State, a Appraisal, cfg Config, now time.Time) (State, err
 		default:
 			deltas["anger"] += mag
 		}
+	}
+
+	// Opposite-valence cancellation within a group: whatever this appraisal
+	// raises on one side of a pair lowers the other side by the same amount.
+	// Only positive contributions cancel; the subtraction itself must not
+	// feed back into the pair.
+	cancel := map[string]float64{}
+	for name, d := range deltas {
+		if d <= 0 {
+			continue
+		}
+		if opp, ok := occOpposites[name]; ok {
+			cancel[opp] += d
+		}
+	}
+	for name, d := range cancel {
+		deltas[name] -= d
 	}
 
 	return ApplyDeltas(s, deltas, cfg)

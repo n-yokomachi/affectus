@@ -19,6 +19,12 @@ type Prospect struct {
 	Desirability float64   `json:"desirability"`
 	Likelihood   float64   `json:"likelihood"`
 	CreatedAt    time.Time `json:"created_at"`
+	// Emotion ("hope" | "fear") and Delta record what this prospect added
+	// when it was filed, so resolving (or dropping) it can release that
+	// amount again: hope and fear are about an uncertain outcome and end
+	// with it. Older state files lack these fields and release nothing.
+	Emotion string  `json:"emotion,omitempty"`
+	Delta   float64 `json:"delta,omitempty"`
 }
 
 // Concept is one stored emotional experience (barrett model): the retrieval

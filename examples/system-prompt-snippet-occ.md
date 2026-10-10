@@ -55,6 +55,11 @@ someone's action belong together (e.g. they did something that hurt you), put
 both in the same appraisal — compounds like anger and gratitude only arise
 from that co-occurrence.
 
+Emotions also fall without decay in two cases: an appraisal that raises one
+side of a pair (joy/distress, pride/shame, admiration/reproach, love/hate,
+gratitude/anger, ...) lowers the other side by the same amount, and resolving
+or dropping a prospect releases the hope or fear it raised.
+
 Time decay toward calm is handled by a scheduled `affectus tick`; you do not
 need to decay anything yourself.
 
